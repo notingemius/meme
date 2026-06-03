@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { colors } from './src/theme/theme';
 import type { RootStackParamList } from './src/navigation';
 import MenuScreen from './src/screens/MenuScreen';
+import WifiSetupScreen from './src/screens/WifiSetupScreen';
 import PlayScreen from './src/screens/PlayScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -24,6 +25,7 @@ export default function App() {
           screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}
         >
           <Stack.Screen name="Menu" component={MenuScreen} />
+          <Stack.Screen name="WifiSetup" component={WifiSetupScreen} />
           <Stack.Screen name="Play" component={PlayScreen} />
         </Stack.Navigator>
       </NavigationContainer>

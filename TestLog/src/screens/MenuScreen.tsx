@@ -48,6 +48,11 @@ export default function MenuScreen({ navigation }: Props) {
     navigation.navigate('Play', { nickname: nick });
   };
 
+  const startWifi = () => {
+    const nick = nickname.trim() || 'Гравець';
+    navigation.navigate('WifiSetup', { nickname: nick });
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <KeyboardAvoidingView
@@ -81,10 +86,9 @@ export default function MenuScreen({ navigation }: Props) {
             <Text style={styles.primaryBtnText}>🎮 Грати з ботами</Text>
           </TouchableOpacity>
 
-          <View style={styles.soonBtn}>
-            <Text style={styles.soonBtnText}>📶 Поряд по Wi-Fi</Text>
-            <Text style={styles.soonBadge}>скоро</Text>
-          </View>
+          <TouchableOpacity style={styles.wifiBtn} onPress={startWifi} activeOpacity={0.85}>
+            <Text style={styles.wifiBtnText}>📶 Гра з другом (Wi-Fi)</Text>
+          </TouchableOpacity>
 
           <View style={styles.howto}>
             <Text style={styles.howtoTitle}>ЯК ГРАТИ</Text>
@@ -174,15 +178,22 @@ const styles = StyleSheet.create({
   soonBtn: {
     backgroundColor: colors.bgAlt,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: colors.accent,
     borderRadius: radius.md,
     paddingVertical: 16,
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    opacity: 0.6,
+    marginTop: spacing.md,
   },
+  wifiBtn: {
+    backgroundColor: colors.bgAlt,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  wifiBtnText: { color: colors.accent, fontSize: 16, fontWeight: '700' },
   soonBtnText: { color: colors.textDim, fontSize: 16, fontWeight: '600' },
   soonBadge: {
     color: colors.textFaint,
