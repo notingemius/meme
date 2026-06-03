@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -12,11 +13,35 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors, radius, spacing } from '../theme/theme';
 import type { RootStackParamList } from '../navigation';
+import { checkAndApplyUpdate, type UpdateState } from '../updates';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Menu'>;
 
+const UPDATE_LABELS: Record<UpdateState, string> = {
+  idle: '⟳ Оновити застосунок',
+  checking: 'Перевіряю оновлення…',
+  downloading: 'Завантажую оновлення…',
+  ready: 'Готово, перезапуск…',
+  'no-update': '✓ У тебе остання версія',
+  error: 'Помилка оновлення',
+  unsupported: 'Оновлення недоступні',
+};
+
 export default function MenuScreen({ navigation }: Props) {
   const [nickname, setNickname] = useState('');
+  const [updateState, setUpdateState] = useState<UpdateState>('idle');
+  const [updateMsg, setUpdateMsg] = useState<string | undefined>();
+
+  const busy = updateState === 'checking' || updateState === 'downloading' || updateState === 'ready';
+
+  const onUpdatePress = () => {
+    if (busy) return;
+    setUpdateMsg(undefined);
+    checkAndApplyUpdate(({ state, message }) => {
+      setUpdateState(state);
+      setUpdateMsg(message);
+    });
+  };
 
   const startOffline = () => {
     const nick = nickname.trim() || 'Гравець';
@@ -74,6 +99,19 @@ export default function MenuScreen({ navigation }: Props) {
               </View>
             ))}
           </View>
+
+          <TouchableOpacity
+            style={[styles.updateBtn, busy && styles.updateBtnBusy]}
+            onPress={onUpdatePress}
+            activeOpacity={0.8}
+            disabled={busy}
+          >
+            {busy && <ActivityIndicator size="small" color={colors.textDim} />}
+            <Text style={styles.updateBtnText}>{UPDATE_LABELS[updateState]}</Text>
+          </TouchableOpacity>
+          {updateState === 'error' && !!updateMsg && (
+            <Text style={styles.updateErr} numberOfLines={2}>{updateMsg}</Text>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -173,4 +211,24 @@ const styles = StyleSheet.create({
   howtoRow: { flexDirection: 'row', marginBottom: spacing.sm },
   bullet: { color: colors.primary, fontSize: 14, marginRight: spacing.sm },
   howtoText: { color: colors.textDim, fontSize: 14, flex: 1, lineHeight: 20 },
+  updateBtn: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: 'transparent',
+  },
+  updateBtnBusy: { opacity: 0.7 },
+  updateBtnText: { color: colors.textDim, fontSize: 14, fontWeight: '600' },
+  updateErr: {
+    color: colors.danger,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
 });
