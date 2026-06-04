@@ -60,3 +60,7 @@ test-results
 # Native projects — генеруються `expo prebuild` (CNG), не комітимо (2+ ГБ build-артефактів)
 apps/mobile/android/
 apps/mobile/ios/
+
+# Python cache
+__pycache__/
+*.pyc
