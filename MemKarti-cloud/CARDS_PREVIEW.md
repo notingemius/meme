@@ -1,10 +1,10 @@
 # МемКарти — превʼю контенту
 
-Згенеровано автоматично з `tools/gen_seed.py`. **104 мем-карток** та **100 ситуацій**.
+Згенеровано автоматично з `tools/gen_seed.py`. **200 мем-карток** та **120 ситуацій**.
 
 > Якщо якась картинка не показується — значить її URL став недоступним, повідом і я заміню.
 
-## 🖼️ Мем-картки (104)
+## 🖼️ Мем-картки (200)
 
 <table>
 <tr>
@@ -163,9 +163,153 @@
 <td align="center" width="160"><img src="https://i.imgflip.com/434i5j.png" width="150"/><br/><sub><b>#103</b> A Train Hitting A School Bus</sub></td>
 <td align="center" width="160"><img src="https://i.imgflip.com/3bfaqn.jpg" width="150"/><br/><sub><b>#104</b> Thanos Impossible</sub></td>
 </tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/95uyf8.jpg" width="150"/><br/><sub><b>#105</b> Truman Show</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/9sw43.jpg" width="150"/><br/><sub><b>#106</b> But That's None Of My Business (Kermit)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/27qxmb.jpg" width="150"/><br/><sub><b>#107</b> I'm Something Of A Scientist Myself</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1qg8fp.jpg" width="150"/><br/><sub><b>#108</b> Grim Reaper Knocking Door</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/2xytmc.jpg" width="150"/><br/><sub><b>#109</b> What Gives People Feelings Of Power</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/bwu6w.jpg" width="150"/><br/><sub><b>#110</b> C'mon Do Something</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/49gdf9.jpg" width="150"/><br/><sub><b>#111</b> Undertaker Sitting Up</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/34eewo.jpg" width="150"/><br/><sub><b>#112</b> Moe Throws Barney (Simpsons)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/jafn4.jpg" width="150"/><br/><sub><b>#113</b> SpongeBob Rainbow</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/98qr33.jpg" width="150"/><br/><sub><b>#114</b> Squid Game</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1hhv9m.jpg" width="150"/><br/><sub><b>#115</b> Obama Medal (Self Award)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/s2zxn.jpg" width="150"/><br/><sub><b>#116</b> Wolverine Remember</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/9ejgym.jpg" width="150"/><br/><sub><b>#117</b> Jarvis I'm Low On Karma</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2equ7w.jpg" width="150"/><br/><sub><b>#118</b> Don't Make Me Tap The Sign</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2ji8hx.jpg" width="150"/><br/><sub><b>#119</b> The Office Congratulations</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/lukr1.jpg" width="150"/><br/><sub><b>#120</b> Kermit Window (Dark Side)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/2bc2vf.jpg" width="150"/><br/><sub><b>#121</b> SpongeBob Burning Paper</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bh8.jpg" width="150"/><br/><sub><b>#122</b> Most Interesting Man In The World</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/c2qn.jpg" width="150"/><br/><sub><b>#123</b> That Would Be Great (Office Space)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/7a9b3.jpg" width="150"/><br/><sub><b>#124</b> Second Breakfast (LOTR)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/21zofh.jpg" width="150"/><br/><sub><b>#125</b> Drake No/Yes</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/38yapg.jpg" width="150"/><br/><sub><b>#126</b> I Don't Want To Play With You Anymore (Toy Story)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/4lts08.jpg" width="150"/><br/><sub><b>#127</b> Never Ask A Woman Her Age</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bip.jpg" width="150"/><br/><sub><b>#128</b> Bad Luck Brian</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/23znef.jpg" width="150"/><br/><sub><b>#129</b> Mr. McMahon Reaction</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/apirkq.jpg" width="150"/><br/><sub><b>#130</b> Monster House Disappointed</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/4qntuo.jpg" width="150"/><br/><sub><b>#131</b> Both Buttons Pressed</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/4flche.jpg" width="150"/><br/><sub><b>#132</b> Sure Grandma Let's Get You To Bed</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/2ynjel.jpg" width="150"/><br/><sub><b>#133</b> The Future World If</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/cv1y0.jpg" width="150"/><br/><sub><b>#134</b> Mugatu So Hot Right Now (Zoolander)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1jgrgn.jpg" width="150"/><br/><sub><b>#135</b> Skinner Out Of Touch (Simpsons)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/4g4ku3.jpg" width="150"/><br/><sub><b>#136</b> Hello Human Resources</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bhf.jpg" width="150"/><br/><sub><b>#137</b> First World Problems</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/of959.jpg" width="150"/><br/><sub><b>#138</b> Hold Fart</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1c81c1.jpg" width="150"/><br/><sub><b>#139</b> Math Lady / Confused Lady</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/271ps6.jpg" width="150"/><br/><sub><b>#140</b> Hard To Swallow Pills</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/2d3al6.jpg" width="150"/><br/><sub><b>#141</b> Car Salesman Slaps Roof Of Car</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bhm.jpg" width="150"/><br/><sub><b>#142</b> Brace Yourselves X Is Coming (GoT)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1x6f.jpg" width="150"/><br/><sub><b>#143</b> Uncle Sam I Want You</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/ukx.jpg" width="150"/><br/><sub><b>#144</b> Dinkleberg (Fairly Odd Parents)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/49z6c.jpg" width="150"/><br/><sub><b>#145</b> Oprah Everybody Gets A Car</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/wczz.jpg" width="150"/><br/><sub><b>#146</b> Captain Picard Facepalm</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1p5q26.jpg" width="150"/><br/><sub><b>#147</b> Triggered Paul</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/56p56k.jpg" width="150"/><br/><sub><b>#148</b> Gentlemen It Is With Great Pleasure</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bik.jpg" width="150"/><br/><sub><b>#149</b> Too Damn High</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/ljk.jpg" width="150"/><br/><sub><b>#150</b> Surprised Koala</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1ooaki.jpg" width="150"/><br/><sub><b>#151</b> Who Would Win?</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2u2xdb.jpg" width="150"/><br/><sub><b>#152</b> Yhorm Dark Souls (Big vs Small)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/emccr.jpg" width="150"/><br/><sub><b>#153</b> Afraid To Ask Andy (Parks & Rec)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/8p0a.jpg" width="150"/><br/><sub><b>#154</b> Grumpy Cat</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bil.jpg" width="150"/><br/><sub><b>#155</b> Put It Somewhere Else Patrick</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bh9.jpg" width="150"/><br/><sub><b>#156</b> X All The Y</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/3vzej.jpg" width="150"/><br/><sub><b>#157</b> See Nobody Cares (Jurassic Park)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/lntct.jpg" width="150"/><br/><sub><b>#158</b> Pepe The Frog</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2byuiy.jpg" width="150"/><br/><sub><b>#159</b> Incoming Call</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2qkodw.jpg" width="150"/><br/><sub><b>#160</b> Who Wants To Be A Millionaire</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/21ajtl.jpg" width="150"/><br/><sub><b>#161</b> Mr Bean Waiting</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/odluv.jpg" width="150"/><br/><sub><b>#162</b> Dr Evil Laser (Austin Powers)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/4xgqu.jpg" width="150"/><br/><sub><b>#163</b> Cute Cat</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/gft6.jpg" width="150"/><br/><sub><b>#164</b> Aaaaand Its Gone (South Park)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/z2nqj.jpg" width="150"/><br/><sub><b>#165</b> Steve Buscemi Fellow Kids</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/26br.jpg" width="150"/><br/><sub><b>#166</b> Don't You Squidward</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/k6jjl.jpg" width="150"/><br/><sub><b>#167</b> Dave Chappelle Modern Problems</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/392xtu.jpg" width="150"/><br/><sub><b>#168</b> SpongeBob Ight Imma Head Out</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/2bqzyl.jpg" width="150"/><br/><sub><b>#169</b> Elmo Fire</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/7bv2j9.jpg" width="150"/><br/><sub><b>#170</b> Avatar Guy Pointing (James Cameron)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1c7cy8.jpg" width="150"/><br/><sub><b>#171</b> Woody And Buzz Everywhere</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/25wb.jpg" width="150"/><br/><sub><b>#172</b> Confession Bear</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/3umnr3.jpg" width="150"/><br/><sub><b>#173</b> Soyboy Vs Yes Chad</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bgs.jpg" width="150"/><br/><sub><b>#174</b> Philosoraptor</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/jrj7.jpg" width="150"/><br/><sub><b>#175</b> Laughing Men In Suits</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/8c9dbh.jpg" width="150"/><br/><sub><b>#176</b> Man Holding Cardboard Sign</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/e8gx0.jpg" width="150"/><br/><sub><b>#177</b> Satisfied Seal</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/h8066.jpg" width="150"/><br/><sub><b>#178</b> Get In Loser (Mean Girls)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/3f0mvv.jpg" width="150"/><br/><sub><b>#179</b> The Office Handshake</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/qep4.jpg" width="150"/><br/><sub><b>#180</b> Pepperidge Farm Remembers</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/48sl64.jpg" width="150"/><br/><sub><b>#181</b> Bilbo Why Shouldn't I Keep It (LOTR)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/50x2l1.jpg" width="150"/><br/><sub><b>#182</b> Why Can't You Just Be Normal</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/7yk6.jpg" width="150"/><br/><sub><b>#183</b> Simba Shadowy Place (Lion King)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2lhzmp.jpg" width="150"/><br/><sub><b>#184</b> Homer Simpson's Back Fat</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/amuvy.jpg" width="150"/><br/><sub><b>#185</b> Smiling Cat</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/34vt4i.jpg" width="150"/><br/><sub><b>#186</b> Brain Before Sleep</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2cp1.jpg" width="150"/><br/><sub><b>#187</b> I'll Just Wait Here</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2dhurg.jpg" width="150"/><br/><sub><b>#188</b> Illusion Of Free Choice</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/2y8ggi.jpg" width="150"/><br/><sub><b>#189</b> I'm Something Of A _ Myself (variant)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/25w3.jpg" width="150"/><br/><sub><b>#190</b> Matrix Morpheus (What If I Told You)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/6mk4.jpg" width="150"/><br/><sub><b>#191</b> Here's Johnny (The Shining)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/498j.jpg" width="150"/><br/><sub><b>#192</b> I See Dead People (Sixth Sense)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/42ej41.jpg" width="150"/><br/><sub><b>#193</b> Yes Honey (Sad Guy On Couch)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/2qx7sw.jpg" width="150"/><br/><sub><b>#194</b> Ben Affleck Smoking</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/4b8w8q.jpg" width="150"/><br/><sub><b>#195</b> Wake Up Babe</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/43iacv.jpg" width="150"/><br/><sub><b>#196</b> Patrick To Do List (SpongeBob)</sub></td>
+</tr>
+<tr>
+<td align="center" width="160"><img src="https://i.imgflip.com/1e4lu0.jpg" width="150"/><br/><sub><b>#197</b> Red Pill Blue Pill (Matrix)</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/1bh3.jpg" width="150"/><br/><sub><b>#198</b> Y U No</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/pry7.jpg" width="150"/><br/><sub><b>#199</b> Keep Calm And Carry On</sub></td>
+<td align="center" width="160"><img src="https://i.imgflip.com/8cfr8i.jpg" width="150"/><br/><sub><b>#200</b> Hand On Shoulder Guy</sub></td>
+</tr>
 </table>
 
-## 💬 Ситуації (100)
+## 💬 Ситуації (120)
 
 | # | 🇺🇦 Українською | 🇷🇺 По-русски |
 |---|---|---|
@@ -269,3 +413,23 @@
 | 98 | Моя мотивація у понеділок vs у п'ятницю ввечері | Моя мотивация в понедельник vs в пятницу вечером |
 | 99 | Коли хтось повільно набирає повідомлення а потім стирає | Когда кто-то медленно набирает сообщение а потом стирает |
 | 100 | Я, коли кажу 'це мій останній мем на сьогодні' | Я, когда говорю 'это мой последний мем на сегодня' |
+| 101 | Коли дивишся фільм жахів і кажеш 'я б так не зробив' | Когда смотришь фильм ужасов и говоришь 'я бы так не сделал' |
+| 102 | Моя реакція коли хтось каже 'ти схожий на батька/маму' | Моя реакция когда кто-то говорит 'ты похож на отца/маму' |
+| 103 | Коли замовив онлайн одяг і він зовсім не такий як на фото | Когда заказал онлайн одежду и она совсем не такая как на фото |
+| 104 | Я, коли намагаюсь пояснити мем батькам | Я, когда пытаюсь объяснить мем родителям |
+| 105 | Коли в кіно хтось їсть попкорн голосніше за фільм | Когда в кино кто-то ест попкорн громче чем фильм |
+| 106 | Моє обличчя на робочому зумі vs в дзеркалі вдома | Моё лицо на рабочем зуме vs в зеркале дома |
+| 107 | Коли бабуся каже 'ти худий, їж' а ти щойно поїв | Когда бабушка говорит 'ты худой, ешь' а ты только что поел |
+| 108 | Я після перегляду мотиваційного відео в 2 ночі | Я после просмотра мотивационного видео в 2 ночи |
+| 109 | Коли друг каже 'я знаю коротку дорогу' і ви заблукали | Когда друг говорит 'я знаю короткую дорогу' и вы заблудились |
+| 110 | Моя впевненість перед іспитом vs під час іспиту | Моя уверенность перед экзаменом vs во время экзамена |
+| 111 | Коли хтось каже 'я не п'ю' а потім першим танцює на столі | Когда кто-то говорит 'я не пью' а потом первым танцует на столе |
+| 112 | Я, коли треба відповісти на повідомлення тижневої давнини | Я, когда надо ответить на сообщение недельной давности |
+| 113 | Коли ставиш на зарядку телефон і він показує 1% | Когда ставишь на зарядку телефон и он показывает 1% |
+| 114 | Моє ставлення до домашніх обов'язків в 20 vs в 30 | Моё отношение к домашним обязанностям в 20 vs в 30 |
+| 115 | Коли кажеш 'ок гугл' а телефон відповідає сірі | Когда говоришь 'ок гугл' а телефон отвечает сири |
+| 116 | Я, коли хтось питає 'а що ти робив цілий день' | Я, когда кто-то спрашивает 'а что ты делал весь день' |
+| 117 | Коли знайшов ідеальний мем але не знаєш кому послати | Когда нашёл идеальный мем но не знаешь кому послать |
+| 118 | Моя соціальна батарейка після 2 годин на вечірці | Моя социальная батарейка после 2 часов на вечеринке |
+| 119 | Коли хтось каже 'можу секунду?' і це тягнеться 20 хвилин | Когда кто-то говорит 'можно секунду?' и это тянется 20 минут |
+| 120 | Я перед дедлайном vs я коли дедлайн через місяць | Я перед дедлайном vs я когда дедлайн через месяц |
