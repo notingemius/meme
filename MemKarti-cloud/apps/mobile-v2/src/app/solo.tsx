@@ -15,7 +15,7 @@ import {
   nextRound,
   type SoloGameState,
 } from '@/game/soloEngine';
-import { FannedHand } from '@/components/FannedHand';
+import { HandPicker } from '@/components/HandPicker';
 import { DropIn, FadeIn } from '@/components/RevealAnimation';
 
 export default function SoloScreen() {
@@ -103,6 +103,43 @@ export default function SoloScreen() {
   }
 
   // === ИГРОВОЙ РАУНД ===
+  if (!isShowingResult) {
+    // Layout: header + situation сверху (scroll), HandPicker отдельно снизу.
+    return (
+      <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Text style={styles.backBtnText}>← Вийти</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerInfo}>
+              Раунд {game.currentRoundIndex + 1} / {game.rounds.length}
+            </Text>
+            <Text style={styles.headerInfo}>★ {game.totalScore}</Text>
+          </View>
+
+          <View style={styles.situationCard}>
+            <Text style={styles.situationLabel}>СИТУАЦІЯ</Text>
+            <Text style={styles.situationText}>{round.situation.text_ua}</Text>
+          </View>
+
+          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 4 }]}>
+            ОБЕРИ МЕМ · РУКА {game.hand.length} КАРТ
+          </Text>
+        </ScrollView>
+
+        <View style={{ marginBottom: insets.bottom + 8 }}>
+          <HandPicker
+            hand={game.hand}
+            onPick={handlePick}
+            disabled={false}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // === Результат раунда ===
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -121,40 +158,30 @@ export default function SoloScreen() {
           <Text style={styles.situationText}>{round.situation.text_ua}</Text>
         </View>
 
-        {!isShowingResult ? (
-          <>
-            <Text style={styles.sectionLabel}>ОБЕРИ МЕМ — РУКА {game.hand.length} КАРТ</Text>
-            <View style={{ marginTop: 12 }}>
-              <FannedHand
-                hand={game.hand}
-                onPick={handlePick}
-                disabled={false}
-              />
+        <View style={styles.resultBlock}>
+          <Text style={styles.resultLabel}>ТВІЙ ВИБІР</Text>
+          <DropIn>
+            <View style={styles.memeCardPicked}>
+              <Image source={{ uri: round.picked!.image_url }} style={styles.memeImageBig} />
+              <Text style={styles.memeTitlePicked}>{round.picked!.title}</Text>
             </View>
-          </>
-        ) : (
-          <View style={styles.resultBlock}>
-            <Text style={styles.resultLabel}>ТВІЙ ВИБІР</Text>
-            <DropIn>
-              <View style={styles.memeCardPicked}>
-                <Image source={{ uri: round.picked!.image_url }} style={styles.memeImageBig} />
-                <Text style={styles.memeTitlePicked}>{round.picked!.title}</Text>
-              </View>
-            </DropIn>
-            <FadeIn delay={700}>
-              <View style={styles.scoreBadge}>
-                <Text style={styles.scoreBadgeText}>+{round.score} очок</Text>
-                <Text style={styles.scoreBadgeNote}>
-                  {round.score === 3
-                    ? '🔥 Огонь!'
-                    : round.score === 2
-                    ? '😄 Норм'
-                    : round.score === 1
-                    ? '🙂 Так собі'
-                    : '😐 Не зайшло'}
-                </Text>
-              </View>
-            </FadeIn>
+          </DropIn>
+          <FadeIn delay={700}>
+            <View style={styles.scoreBadge}>
+              <Text style={styles.scoreBadgeText}>+{round.score} очок</Text>
+              <Text style={styles.scoreBadgeNote}>
+                {round.score === 3
+                  ? '🔥 Огонь!'
+                  : round.score === 2
+                  ? '😄 Норм'
+                  : round.score === 1
+                  ? '🙂 Так собі'
+                  : '😐 Не зайшло'}
+              </Text>
+            </View>
+          </FadeIn>
+          {/* Задержка: кнопка появляется через ~1с чтобы не было случайных тапов */}
+          <FadeIn delay={1200}>
             <TouchableOpacity onPress={handleNext} style={styles.btnPrimary}>
               <Text style={styles.btnPrimaryText}>
                 {game.currentRoundIndex + 1 >= game.rounds.length
@@ -162,8 +189,8 @@ export default function SoloScreen() {
                   : 'Наступний раунд →'}
               </Text>
             </TouchableOpacity>
-          </View>
-        )}
+          </FadeIn>
+        </View>
       </ScrollView>
     </View>
   );

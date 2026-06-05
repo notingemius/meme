@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { ClientView } from '@/game/lanGame';
-import { FannedHand } from './FannedHand';
+import { HandPicker } from './HandPicker';
 import { DropIn, FadeIn } from './RevealAnimation';
 
 type Props = {
@@ -153,39 +153,26 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
     );
   }
 
-  // ============= PICK (с веером руки) =============
-  const pickedMemeId = (() => {
-    if (!view.myPickedSubmissionId) return null;
-    // ВАЖНО: в фазе pick submissions ещё не shared (мы их не отдаём ClientView в pick),
-    // поэтому индикатор "обрано" рисуем только когда myPickedSubmissionId стал не null.
-    // Сама карта уже отсутствует в myHand (host удалил после submit).
-    return -1;
-  })();
-
+  // ============= PICK =============
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
         <RoundHeader view={view} />
         <Text style={styles.label}>СИТУАЦІЯ</Text>
         <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
-        <Text style={[styles.label, { marginTop: 24, marginBottom: 6 }]}>
-          ТВОЯ РУКА — ОБЕРИ МЕМ
+        <Text style={[styles.label, { marginTop: 20, marginBottom: 4 }]}>
+          ТВОЯ РУКА · ГОРТАЙ ТА ОБЕРИ
         </Text>
-
-        <View style={{ marginTop: 8 }}>
-          <FannedHand
-            hand={view.myHand}
-            onPick={(id) => onSubmit(id)}
-            disabled={!!view.myPickedSubmissionId}
-            pickedId={pickedMemeId}
-          />
-        </View>
-
-        {view.myPickedSubmissionId && (
-          <Text style={styles.waiting}>✓ Вибір зроблено. Чекаємо інших…</Text>
-        )}
       </ScrollView>
+
+      <View style={{ marginHorizontal: -16 }}>
+        <HandPicker
+          hand={view.myHand}
+          onPick={(id) => onSubmit(id)}
+          disabled={!!view.myPickedSubmissionId}
+        />
+      </View>
     </View>
   );
 }
