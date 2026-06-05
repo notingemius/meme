@@ -81,16 +81,22 @@ export default function RootLayout() {
     };
   }, []);
 
-  // DEBUG: бінарний пошук — замість повного дерева провайдерів повертаємо
-  // мінімальний JSX. Якщо побачимо червоний — проблема в Stack / providers.
-  // Якщо залишиться білий — проблема глибше (на рівні expo-router root).
-  console.log('[MK-DEBUG] RootLayout: about to return minimal JSX');
+  // DEBUG (step 2): рендеримо всі провайдери, але БЕЗ <Stack>. Якщо зелений —
+  // винний <Stack> (expo-router). Якщо білий — винний один з провайдерів.
+  console.log('[MK-DEBUG] RootLayout: about to return JSX without Stack');
   return (
-    <View style={{ flex: 1, backgroundColor: '#FF0000', alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>
-        DEBUG RED SCREEN
-      </Text>
-    </View>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={{ flex: 1, backgroundColor: '#00AA00', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>
+              NO STACK, ALL PROVIDERS
+            </Text>
+          </View>
+          <AuthModal />
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 
   // eslint-disable-next-line no-unreachable
