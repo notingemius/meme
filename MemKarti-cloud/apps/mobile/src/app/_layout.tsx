@@ -81,10 +81,11 @@ export default function RootLayout() {
     };
   }, []);
 
-  // DEBUG (step 3): голий <Stack> без <Stack.Screen>. Якщо запрацює —
-  // проблема в декларації Stack.Screen або в одному з child routes.
-  // Якщо ні — проблема в react-native-screens / новій архітектурі.
-  console.log('[MK-DEBUG] RootLayout: about to return bare Stack');
+  // DEBUG (step 4): повертаємо Stack але рендеримо тривіальний index екран.
+  // Для цього в commit'і також змінено app/index.tsx → простий View+Text.
+  // Якщо запрацює — проблема в HomeScreen (KeyboardAvoidingAnimatedView /
+  // lucide-react-native / useSafeAreaInsets / useFonts). Якщо ні — react-native-screens.
+  console.log('[MK-DEBUG] RootLayout: about to return Stack with trivial index');
   return <Stack screenOptions={{ headerShown: false }} />;
 
   // eslint-disable-next-line no-unreachable
