@@ -7,6 +7,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -19,17 +21,12 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { Sparkles, Users, Plus, LogIn, Trophy, Zap, Wifi } from 'lucide-react-native';
-import React from 'react';
-// DEBUG step 5: замінив KeyboardAvoidingAnimatedView на View. Якщо тепер
-// відкривається — винний KeyboardAvoidingAnimatedView (reanimated).
-// import KeyboardAvoidingAnimatedView from '@/components/KeyboardAvoidingAnimatedView';
-function KeyboardAvoidingAnimatedView(props: { children: React.ReactNode; style?: any; behavior?: string }) {
-  console.log('[MK-DEBUG] KeyboardAvoidingAnimatedView STUB: render');
-  return <View style={props.style}>{props.children}</View>;
-}
+// FIX (white screen): the custom KeyboardAvoidingAnimatedView caused a silent
+// rendering failure in release builds on Android with the new architecture +
+// react-native-reanimated v4. Replaced with React Native's stock
+// KeyboardAvoidingView. Original: '@/components/KeyboardAvoidingAnimatedView'.
 
 export default function HomeScreen() {
-  console.log('[MK-DEBUG] HomeScreen (real): render start');
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [nickname, setNickname] = useState('');
@@ -104,7 +101,10 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <StatusBar style="dark" />
-      <KeyboardAvoidingAnimatedView style={{ flex: 1 }} behavior="padding">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <ScrollView
           contentContainerStyle={{
             paddingTop: insets.top + 24,
@@ -518,7 +518,7 @@ export default function HomeScreen() {
             ))}
           </View>
         </ScrollView>
-      </KeyboardAvoidingAnimatedView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

@@ -17,12 +17,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { View, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 void SplashScreen.preventAutoHideAsync();
-
-// DEBUG: marker that the _layout.tsx module was loaded by metroRequire
-console.log('[MK-DEBUG] _layout.tsx module loaded');
 
 const SPLASH_TIMEOUT_MS = 10_000;
 
@@ -38,19 +34,11 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  console.log('[MK-DEBUG] RootLayout: render start');
   const { initiate } = useAuth();
-  console.log('[MK-DEBUG] RootLayout: useAuth() returned');
 
   // Завантажуємо збережену сесію у фоні (для онлайн-режиму).
   useEffect(() => {
-    console.log('[MK-DEBUG] RootLayout: calling initiate()');
-    try {
-      initiate();
-      console.log('[MK-DEBUG] RootLayout: initiate() returned');
-    } catch (e) {
-      console.log('[MK-DEBUG] RootLayout: initiate() THREW', String(e));
-    }
+    initiate();
   }, [initiate]);
 
   // ВАЖЛИВО (фікс білого екрану / splash-hold): splash тримається нативним
@@ -61,10 +49,9 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     const hide = () => {
-      console.log('[MK-DEBUG] RootLayout: calling SplashScreen.hideAsync()');
-      SplashScreen.hideAsync()
-        .then(() => console.log('[MK-DEBUG] SplashScreen.hideAsync resolved'))
-        .catch((e) => console.log('[MK-DEBUG] SplashScreen.hideAsync rejected', String(e)));
+      SplashScreen.hideAsync().catch(() => {
+        // splash вже сховано або модуль недоступний — ігноруємо
+      });
     };
     // Невелика затримка, щоб перший кадр UI встиг змонтуватися.
     const t = setTimeout(() => {
@@ -81,14 +68,8 @@ export default function RootLayout() {
     };
   }, []);
 
-  // DEBUG (step 4): повертаємо Stack але рендеримо тривіальний index екран.
-  // Для цього в commit'і також змінено app/index.tsx → простий View+Text.
-  // Якщо запрацює — проблема в HomeScreen (KeyboardAvoidingAnimatedView /
-  // lucide-react-native / useSafeAreaInsets / useFonts). Якщо ні — react-native-screens.
-  console.log('[MK-DEBUG] RootLayout: about to return Stack with trivial index');
-  return <Stack screenOptions={{ headerShown: false }} />;
-
-  // eslint-disable-next-line no-unreachable
+  // НЕ блокуємо рендер на auth-гейті: головний екран не використовує сесію,
+  // тож рендеримо UI одразу. Сесія підвантажиться у фоні (isReady в useAuth).
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
