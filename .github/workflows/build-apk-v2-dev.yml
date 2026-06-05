@@ -1,0 +1,111 @@
+name: Build Android dev-client APK (v2)
+
+# Сборка dev-client APK для горячей перезагрузки JS через Metro.
+# Билдится РУЧНО (workflow_dispatch) — не на каждый push, т.к. сам код
+# обновляется через Metro и пересобирать APK не нужно.
+# Пересобирать только когда меняются native deps (package.json) или native config.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: build-apk-v2-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build v2 dev-client APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        working-directory: MemKarti-cloud/apps/mobile-v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK (cmdline-tools only)
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.1.12297006" \
+            "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.1.12297006" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.1.12297006" >> "$GITHUB_ENV"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-v2-${{ runner.os }}-${{ hashFiles('MemKarti-cloud/apps/mobile-v2/package.json') }}
+          restore-keys: |
+            gradle-v2-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Expo prebuild (generate android/) — DEV variant
+        env:
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Configure Gradle JVM args
+        working-directory: MemKarti-cloud/apps/mobile-v2/android
+        run: |
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g"
+            echo "org.gradle.daemon=false"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.caching=true"
+          } >> gradle.properties
+
+      - name: Build DEBUG APK (dev-client)
+        working-directory: MemKarti-cloud/apps/mobile-v2/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug \
+            -PreactNativeArchitectures=arm64-v8a \
+            --no-daemon \
+            --stacktrace
+
+      - name: Find APK output
+        id: find_apk
+        working-directory: MemKarti-cloud/apps/mobile-v2/android
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n1)
+          echo "Found APK: $APK_PATH"
+          ls -lh "$APK_PATH"
+          echo "apk_path=MemKarti-cloud/apps/mobile-v2/android/$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "apk_name=MemKarti-v2-DEV-$(date +%Y%m%d-%H%M)-${GITHUB_SHA::7}.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Upload dev-client APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.find_apk.outputs.apk_name }}
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          if-no-files-found: error
+          retention-days: 30
