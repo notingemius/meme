@@ -21,18 +21,20 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { Sparkles, Users, Plus, LogIn, Trophy, Zap, Wifi } from 'lucide-react-native';
-// FIX (white screen): the custom KeyboardAvoidingAnimatedView caused a silent
-// rendering failure in release builds on Android with the new architecture +
-// react-native-reanimated v4. Replaced with React Native's stock
-// KeyboardAvoidingView. Original: '@/components/KeyboardAvoidingAnimatedView'.
+
+console.log('[MK-DEBUG] index.tsx module loaded');
 
 export default function HomeScreen() {
+  console.log('[MK-DEBUG] HomeScreen: render start');
   const insets = useSafeAreaInsets();
+  console.log('[MK-DEBUG] HomeScreen: useSafeAreaInsets OK', insets.top, insets.bottom);
   const router = useRouter();
+  console.log('[MK-DEBUG] HomeScreen: useRouter OK');
   const [nickname, setNickname] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'menu' | 'join'>('menu');
   const [loading, setLoading] = useState(false);
+  console.log('[MK-DEBUG] HomeScreen: useState hooks OK');
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -40,11 +42,13 @@ export default function HomeScreen() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  console.log('[MK-DEBUG] HomeScreen: useFonts called, fontsLoaded=', fontsLoaded);
 
   // НЕ блокуємо рендер на шрифтах: якщо Inter ще не готовий — показуємо екран
   // із системним шрифтом (а не білий екран). Коли шрифт завантажиться, екран
   // перемалюється з Inter. void — щоб лінтер не лаявся на невикористану змінну.
   void fontsLoaded;
+  console.log('[MK-DEBUG] HomeScreen: about to return JSX');
 
   const handleCreateRoom = async () => {
     if (!nickname.trim()) {
