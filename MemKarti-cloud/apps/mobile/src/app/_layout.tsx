@@ -81,23 +81,11 @@ export default function RootLayout() {
     };
   }, []);
 
-  // DEBUG (step 2): рендеримо всі провайдери, але БЕЗ <Stack>. Якщо зелений —
-  // винний <Stack> (expo-router). Якщо білий — винний один з провайдерів.
-  console.log('[MK-DEBUG] RootLayout: about to return JSX without Stack');
-  return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <View style={{ flex: 1, backgroundColor: '#00AA00', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>
-              NO STACK, ALL PROVIDERS
-            </Text>
-          </View>
-          <AuthModal />
-        </GestureHandlerRootView>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
+  // DEBUG (step 3): голий <Stack> без <Stack.Screen>. Якщо запрацює —
+  // проблема в декларації Stack.Screen або в одному з child routes.
+  // Якщо ні — проблема в react-native-screens / новій архітектурі.
+  console.log('[MK-DEBUG] RootLayout: about to return bare Stack');
+  return <Stack screenOptions={{ headerShown: false }} />;
 
   // eslint-disable-next-line no-unreachable
   return (
