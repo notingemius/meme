@@ -17,6 +17,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { View, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 void SplashScreen.preventAutoHideAsync();
 
@@ -80,8 +81,19 @@ export default function RootLayout() {
     };
   }, []);
 
-  // НЕ блокуємо рендер на auth-гейті: головний екран не використовує сесію,
-  // тож рендеримо UI одразу. Сесія підвантажиться у фоні (isReady в useAuth).
+  // DEBUG: бінарний пошук — замість повного дерева провайдерів повертаємо
+  // мінімальний JSX. Якщо побачимо червоний — проблема в Stack / providers.
+  // Якщо залишиться білий — проблема глибше (на рівні expo-router root).
+  console.log('[MK-DEBUG] RootLayout: about to return minimal JSX');
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FF0000', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: 'bold' }}>
+        DEBUG RED SCREEN
+      </Text>
+    </View>
+  );
+
+  // eslint-disable-next-line no-unreachable
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
