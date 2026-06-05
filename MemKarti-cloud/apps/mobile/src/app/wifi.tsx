@@ -12,13 +12,15 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	TextInput,
 	ScrollView,
 	ActivityIndicator,
 	Alert,
 	Image,
 	StyleSheet,
 } from "react-native"
+// FIX (white screen): see SafeTextInput.tsx — stock TextInput is broken
+// under Fabric on Android in react-native 0.81.4. SafeTextInput renders correctly.
+import TextInput from "@/components/SafeTextInput"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { StatusBar } from "expo-status-bar"
 import { useRouter } from "expo-router"
