@@ -112,6 +112,9 @@ jobs:
 
       - name: Build release APK (arm64-v8a)
         working-directory: MemKarti-cloud/apps/mobile/android
+        env:
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+          SENTRY_ALLOW_FAILURE: 'true'
         run: |
           chmod +x ./gradlew
           ./gradlew assembleRelease \
