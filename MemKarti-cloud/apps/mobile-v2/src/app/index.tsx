@@ -26,7 +26,9 @@ export default function HomeScreen() {
       Alert.alert('Введи нік', 'Спочатку введи своє імʼя');
       return;
     }
-    Alert.alert('TODO', `Створити кімнату для ${nickname}`);
+    // Поки що "Створити кімнату" = соло-режим (одиночна гра проти AI-судді).
+    // Wi-Fi мультиплеер прийде наступним кроком.
+    router.push({ pathname: '/solo', params: { nickname: nickname.trim() } });
   };
 
   const handleJoinRoom = () => {
@@ -34,7 +36,10 @@ export default function HomeScreen() {
       Alert.alert('Заповни поля', 'Введи нік і код кімнати');
       return;
     }
-    Alert.alert('TODO', `Приєднатись до ${roomCode} як ${nickname}`);
+    Alert.alert(
+      'Скоро',
+      'Онлайн-кімнати в розробці. Поки що грай у соло або через Wi-Fi.',
+    );
   };
 
   return (
