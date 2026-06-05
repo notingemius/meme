@@ -3,13 +3,14 @@
 // ----------------------------------------------------------------------------
 // Хост держит state, рассылает всем. Клиенты шлют действия.
 // 5 раундов. В каждом:
-//   1. Хост выбирает ситуацию + раздаёт по 5 мемов каждому
-//   2. Все игроки выбирают один мем из руки → submit
-//   3. Когда ВСЕ submit'нули — хост открывает все варианты (анонимно)
-//   4. Все голосуют за лучший (нельзя голосовать за свой) → vote
-//   5. Победитель раунда получает +1 очко
-//   6. Следующий раунд
-// После 5 раундов — финал, у кого больше очков.
+//   1. Хост выбирает ситуацию
+//   2. У каждого игрока 8 мемов в руке (на старте раздаются + добираются после игры)
+//   3. Все игроки выбирают один мем из руки → submit
+//   4. Когда ВСЕ submit'нули — открываются все варианты
+//   5. Все голосуют за лучший (МОЖНО голосовать и за свой — по запросу) → vote
+//   6. Победитель раунда получает +1 очко
+//   7. Сыгранный мем выходит из руки, добирается 1 новый → опять 8
+// После 5 раундов — финал.
 // ============================================================================
 
 import { SITUATIONS, MEME_CARDS, type Situation, type MemeCard } from './deck';
@@ -17,13 +18,13 @@ import { SITUATIONS, MEME_CARDS, type Situation, type MemeCard } from './deck';
 export type Phase = 'lobby' | 'pick' | 'vote' | 'reveal' | 'finished';
 
 export type Player = {
-  id: string; // host = 'host', clients = peer.id
+  id: string;
   nickname: string;
   score: number;
 };
 
 export type Submission = {
-  id: string; // submission id (random)
+  id: string;
   playerId: string;
   memeCard: MemeCard;
 };
@@ -31,25 +32,25 @@ export type Submission = {
 export type LanGameState = {
   phase: Phase;
   players: Player[];
-  round: number; // 1-based
+  round: number;
   totalRounds: number;
   situation: Situation | null;
-  // per-player hand. only sent privately to that player in client view.
-  hands: Record<string, MemeCard[]>;
+  hands: Record<string, MemeCard[]>; // у каждого игрока всегда HAND_SIZE мемов
   submissions: Submission[];
-  votes: Record<string, string>; // voterPlayerId -> submissionId
+  votes: Record<string, string>;
   roundWinner: { playerId: string; submissionId: string } | null;
+  // Все мемы, которые уже были розданы (или сыграны) — чтобы не повторялись
+  usedMemeIds: number[];
 };
 
-// Клиентский view — то что видит каждый игрок (без чужих рук).
 export type ClientView = {
   phase: Phase;
   players: Player[];
   round: number;
   totalRounds: number;
   situation: Situation | null;
-  myHand: MemeCard[]; // только моя рука
-  submissions: Submission[]; // в фазе vote/reveal — все ответы
+  myHand: MemeCard[];
+  submissions: Submission[];
   myPickedSubmissionId: string | null;
   myVotedSubmissionId: string | null;
   roundWinner: { playerId: string; submissionId: string } | null;
@@ -57,7 +58,7 @@ export type ClientView = {
 };
 
 const ROUNDS = 5;
-const HAND_SIZE = 5;
+export const HAND_SIZE = 8;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -76,8 +77,16 @@ function newSubmissionId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function drawCards(state: LanGameState, count: number): { drawn: MemeCard[]; newUsed: number[] } {
+  const used = new Set(state.usedMemeIds);
+  const available = MEME_CARDS.filter((m) => !used.has(m.id));
+  const drawn = rnd(available, count);
+  drawn.forEach((m) => used.add(m.id));
+  return { drawn, newUsed: Array.from(used) };
+}
+
 // ----------------------------------------------------------------------------
-// HOST API — мутации стейта (только на хосте)
+// HOST API
 // ----------------------------------------------------------------------------
 
 export function createLobby(hostNickname: string): LanGameState {
@@ -91,6 +100,7 @@ export function createLobby(hostNickname: string): LanGameState {
     submissions: [],
     votes: {},
     roundWinner: null,
+    usedMemeIds: [],
   };
 }
 
@@ -103,9 +113,11 @@ export function addPlayer(state: LanGameState, peerId: string, nickname: string)
 }
 
 export function removePlayer(state: LanGameState, peerId: string): LanGameState {
+  const { [peerId]: _removed, ...restHands } = state.hands;
   return {
     ...state,
     players: state.players.filter((p) => p.id !== peerId),
+    hands: restHands,
   };
 }
 
@@ -116,29 +128,31 @@ export function startRound(state: LanGameState): LanGameState {
     return { ...state, phase: 'finished' };
   }
   const sit = rnd(SITUATIONS, 1)[0];
-  const usedMemes = new Set<number>();
-  Object.values(state.hands).flat().forEach((m) => usedMemes.add(m.id));
-  const available = MEME_CARDS.filter((m) => !usedMemes.has(m.id));
-  const hands: Record<string, MemeCard[]> = {};
+
+  // Раздать/долить до HAND_SIZE каждому игроку
+  let used = new Set(state.usedMemeIds);
+  const newHands: Record<string, MemeCard[]> = { ...state.hands };
   for (const p of state.players) {
-    const hand = rnd(available, HAND_SIZE);
-    hand.forEach((m) => usedMemes.add(m.id));
-    hands[p.id] = hand;
-    // remove these from available for next player
-    for (const card of hand) {
-      const idx = available.findIndex((m) => m.id === card.id);
-      if (idx >= 0) available.splice(idx, 1);
+    const current = newHands[p.id] ?? [];
+    const needed = HAND_SIZE - current.length;
+    if (needed > 0) {
+      const available = MEME_CARDS.filter((m) => !used.has(m.id));
+      const refill = rnd(available, Math.min(needed, available.length));
+      refill.forEach((m) => used.add(m.id));
+      newHands[p.id] = [...current, ...refill];
     }
   }
+
   return {
     ...state,
     phase: 'pick',
     round: nextRound,
     situation: sit,
-    hands,
+    hands: newHands,
     submissions: [],
     votes: {},
     roundWinner: null,
+    usedMemeIds: Array.from(used),
   };
 }
 
@@ -157,14 +171,20 @@ export function submitPick(
     playerId,
     memeCard: card,
   };
-  const newState = { ...state, submissions: [...state.submissions, sub] };
-  // Если все игроки сделали выбор — переходим к голосованию
+  // Убираем сыгранную карту из руки (она вернётся на startRound для следующего раунда: доберём до 8)
+  const newHand = hand.filter((m) => m.id !== memeCardId);
+  const newState: LanGameState = {
+    ...state,
+    hands: { ...state.hands, [playerId]: newHand },
+    submissions: [...state.submissions, sub],
+  };
   if (newState.submissions.length >= state.players.length) {
     return { ...newState, phase: 'vote' };
   }
   return newState;
 }
 
+// ВОТ ЭТО МЕНЯЛИ: МОЖНО голосовать за свой мем.
 export function castVote(
   state: LanGameState,
   voterId: string,
@@ -172,35 +192,23 @@ export function castVote(
 ): LanGameState {
   if (state.phase !== 'vote') return state;
   if (state.votes[voterId]) return state;
-  // нельзя голосовать за свою картинку
   const sub = state.submissions.find((s) => s.id === submissionId);
   if (!sub) return state;
-  if (sub.playerId === voterId) return state;
+  // (Раньше был запрет sub.playerId === voterId — теперь разрешено.)
   const newVotes = { ...state.votes, [voterId]: submissionId };
   const newState = { ...state, votes: newVotes };
-  // Если все проголосовали — определяем победителя
-  if (Object.keys(newVotes).length >= state.players.length - getNonVoters(state)) {
+  // Все ли проголосовали?
+  if (Object.keys(newVotes).length >= state.players.length) {
     return revealResult(newState);
   }
   return newState;
 }
 
-// Игроки, которые НЕ могут голосовать в этом раунде (никто не submit'нул мем).
-// На практике это всегда 0 если все submit'нули, но безопасности ради.
-function getNonVoters(state: LanGameState): number {
-  // голосуют только те, у кого есть submission в этом раунде
-  return state.players.filter(
-    (p) => !state.submissions.some((s) => s.playerId === p.id),
-  ).length;
-}
-
 function revealResult(state: LanGameState): LanGameState {
-  // Подсчитываем голоса
   const tally: Record<string, number> = {};
   for (const subId of Object.values(state.votes)) {
     tally[subId] = (tally[subId] ?? 0) + 1;
   }
-  // Находим submission с максимумом голосов
   let winnerSubId: string | null = null;
   let max = -1;
   for (const sub of state.submissions) {
@@ -212,7 +220,6 @@ function revealResult(state: LanGameState): LanGameState {
   }
   if (!winnerSubId) return { ...state, phase: 'reveal', roundWinner: null };
   const winnerSub = state.submissions.find((s) => s.id === winnerSubId)!;
-  // Начисляем очко
   const updatedPlayers = state.players.map((p) =>
     p.id === winnerSub.playerId ? { ...p, score: p.score + 1 } : p,
   );
@@ -224,9 +231,6 @@ function revealResult(state: LanGameState): LanGameState {
   };
 }
 
-// ----------------------------------------------------------------------------
-// Превращаем серверный state в персональный view для конкретного игрока.
-// ----------------------------------------------------------------------------
 export function viewForPlayer(state: LanGameState, myId: string): ClientView {
   const myHand = state.hands[myId] ?? [];
   const mySub = state.submissions.find((s) => s.playerId === myId);
@@ -251,10 +255,10 @@ export function viewForPlayer(state: LanGameState, myId: string): ClientView {
 export type ClientMsg =
   | { t: 'hello'; nickname: string }
   | { t: 'submit'; memeCardId: number }
-  | { t: 'vote'; submissionId: string }
-  | { t: 'startRound' } // только хост; клиенты игнорируют
-  | { t: 'startGame' }; // хост → начать игру из лобби
+  | { t: 'vote'; submissionId: string };
 
 export type ServerMsg =
   | { t: 'welcome'; myId: string }
-  | { t: 'view'; view: ClientView };
+  | { t: 'view'; view: ClientView }
+  // Для discovery — короткий ответ "это я хост", когда client сканирует
+  | { t: 'serverInfo'; nickname: string; players: number };

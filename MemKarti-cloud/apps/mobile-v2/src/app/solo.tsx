@@ -15,6 +15,8 @@ import {
   nextRound,
   type SoloGameState,
 } from '@/game/soloEngine';
+import { FannedHand } from '@/components/FannedHand';
+import { DropIn, FadeIn } from '@/components/RevealAnimation';
 
 export default function SoloScreen() {
   const insets = useSafeAreaInsets();
@@ -27,12 +29,9 @@ export default function SoloScreen() {
   const round = game.rounds[game.currentRoundIndex];
   const isShowingResult = !!round?.picked;
 
-  const handlePick = useCallback(
-    (memeId: number) => {
-      setGame((s) => pickCard(s, memeId));
-    },
-    [],
-  );
+  const handlePick = useCallback((memeId: number) => {
+    setGame((s) => pickCard(s, memeId));
+  }, []);
 
   const handleNext = useCallback(() => {
     setGame((s) => nextRound(s));
@@ -47,10 +46,13 @@ export default function SoloScreen() {
     const max = game.rounds.length * 3;
     const pct = max > 0 ? (game.totalScore / max) * 100 : 0;
     const verdict =
-      pct >= 80 ? 'Король мемів! 👑'
-      : pct >= 60 ? 'Майстер сарказму 🔥'
-      : pct >= 40 ? 'Норм, треба тренуватись 😎'
-      : 'Ще трохи практики 💪';
+      pct >= 80
+        ? 'Король мемів! 👑'
+        : pct >= 60
+        ? 'Майстер сарказму 🔥'
+        : pct >= 40
+        ? 'Норм, треба тренуватись 😎'
+        : 'Ще трохи практики 💪';
 
     return (
       <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
@@ -103,7 +105,7 @@ export default function SoloScreen() {
   // === ИГРОВОЙ РАУНД ===
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Вийти</Text>
@@ -121,36 +123,38 @@ export default function SoloScreen() {
 
         {!isShowingResult ? (
           <>
-            <Text style={styles.sectionLabel}>ОБЕРИ МЕМ</Text>
-            {round.hand.map((meme) => (
-              <TouchableOpacity
-                key={meme.id}
-                onPress={() => handlePick(meme.id)}
-                style={styles.memeCard}
-              >
-                <Image source={{ uri: meme.image_url }} style={styles.memeImage} />
-                <Text style={styles.memeTitle} numberOfLines={2}>
-                  {meme.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.sectionLabel}>ОБЕРИ МЕМ — РУКА {game.hand.length} КАРТ</Text>
+            <View style={{ marginTop: 12 }}>
+              <FannedHand
+                hand={game.hand}
+                onPick={handlePick}
+                disabled={false}
+              />
+            </View>
           </>
         ) : (
           <View style={styles.resultBlock}>
             <Text style={styles.resultLabel}>ТВІЙ ВИБІР</Text>
-            <View style={styles.memeCardPicked}>
-              <Image source={{ uri: round.picked!.image_url }} style={styles.memeImageBig} />
-              <Text style={styles.memeTitlePicked}>{round.picked!.title}</Text>
-            </View>
-            <View style={styles.scoreBadge}>
-              <Text style={styles.scoreBadgeText}>+{round.score} очок</Text>
-              <Text style={styles.scoreBadgeNote}>
-                {round.score === 3 ? '🔥 Огонь!'
-                : round.score === 2 ? '😄 Норм'
-                : round.score === 1 ? '🙂 Так собі'
-                : '😐 Не зайшло'}
-              </Text>
-            </View>
+            <DropIn>
+              <View style={styles.memeCardPicked}>
+                <Image source={{ uri: round.picked!.image_url }} style={styles.memeImageBig} />
+                <Text style={styles.memeTitlePicked}>{round.picked!.title}</Text>
+              </View>
+            </DropIn>
+            <FadeIn delay={700}>
+              <View style={styles.scoreBadge}>
+                <Text style={styles.scoreBadgeText}>+{round.score} очок</Text>
+                <Text style={styles.scoreBadgeNote}>
+                  {round.score === 3
+                    ? '🔥 Огонь!'
+                    : round.score === 2
+                    ? '😄 Норм'
+                    : round.score === 1
+                    ? '🙂 Так собі'
+                    : '😐 Не зайшло'}
+                </Text>
+              </View>
+            </FadeIn>
             <TouchableOpacity onPress={handleNext} style={styles.btnPrimary}>
               <Text style={styles.btnPrimaryText}>
                 {game.currentRoundIndex + 1 >= game.rounds.length
@@ -173,20 +177,11 @@ const styles = StyleSheet.create({
   backBtnText: { color: '#2563EB', fontSize: 14, fontWeight: '600' },
   headerInfo: { color: '#6B7280', fontSize: 13, fontWeight: '500' },
 
-  situationCard: {
-    backgroundColor: '#2563EB', borderRadius: 16, padding: 20, marginBottom: 24,
-  },
+  situationCard: { backgroundColor: '#2563EB', borderRadius: 16, padding: 20, marginBottom: 16 },
   situationLabel: { color: '#BFDBFE', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
-  situationText: { color: '#FFFFFF', fontSize: 18, fontWeight: '600', lineHeight: 25 },
+  situationText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600', lineHeight: 24 },
 
-  sectionLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 12 },
-
-  memeCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
-    marginBottom: 12, overflow: 'hidden',
-  },
-  memeImage: { width: '100%', height: 180, backgroundColor: '#F3F4F6' },
-  memeTitle: { fontSize: 14, color: '#111827', padding: 12, fontWeight: '500' },
+  sectionLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginTop: 6 },
 
   resultBlock: { alignItems: 'stretch' },
   resultLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 12 },
@@ -204,23 +199,14 @@ const styles = StyleSheet.create({
   scoreBadgeText: { fontSize: 28, color: '#92400E', fontWeight: '700' },
   scoreBadgeNote: { fontSize: 15, color: '#78350F', marginTop: 4 },
 
-  btnPrimary: {
-    backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 16,
-    alignItems: 'center',
-  },
+  btnPrimary: { backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
   btnPrimaryText: { fontSize: 15, color: '#FFFFFF', fontWeight: '600' },
-  btnSecondary: {
-    backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 16,
-    alignItems: 'center',
-  },
+  btnSecondary: { backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
   btnSecondaryText: { fontSize: 15, color: '#2563EB', fontWeight: '600' },
 
-  // === финал ===
   title: { fontSize: 32, fontWeight: '700', color: '#111827' },
   subtitle: { fontSize: 15, color: '#6B7280', marginTop: 4 },
-  scoreCard: {
-    backgroundColor: '#2563EB', borderRadius: 20, padding: 24, marginTop: 24, alignItems: 'center',
-  },
+  scoreCard: { backgroundColor: '#2563EB', borderRadius: 20, padding: 24, marginTop: 24, alignItems: 'center' },
   scoreLabel: { color: '#BFDBFE', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
   scoreValue: { color: '#FFFFFF', fontSize: 56, fontWeight: '700', marginVertical: 8 },
   verdict: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },

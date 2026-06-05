@@ -7,6 +7,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { ClientView } from '@/game/lanGame';
+import { FannedHand } from './FannedHand';
+import { DropIn, FadeIn } from './RevealAnimation';
 
 type Props = {
   view: ClientView;
@@ -14,13 +16,11 @@ type Props = {
   isHost: boolean;
   onSubmit: (memeCardId: number) => void;
   onVote: (submissionId: string) => void;
-  onNextRound: () => void; // только хост вызывает
+  onNextRound: () => void;
   onExit: () => void;
 };
 
 export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound, onExit }: Props) {
-  const me = view.players.find((p) => p.id === view.myId);
-
   // ============= FINISHED =============
   if (view.phase === 'finished') {
     const sorted = [...view.players].sort((a, b) => b.score - a.score);
@@ -63,45 +63,51 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
           {winnerSub && winnerPlayer ? (
-            <View style={styles.winnerCard}>
-              <Text style={styles.winnerLabel}>ПЕРЕМОЖЕЦЬ РАУНДУ</Text>
-              <Text style={styles.winnerName}>{winnerPlayer.nickname}</Text>
-              <Image source={{ uri: winnerSub.memeCard.image_url }} style={styles.bigImg} />
-              <Text style={styles.memeTitle}>{winnerSub.memeCard.title}</Text>
-            </View>
+            <FadeIn delay={view.submissions.length * 200 + 400}>
+              <View style={styles.winnerCard}>
+                <Text style={styles.winnerLabel}>ПЕРЕМОЖЕЦЬ РАУНДУ</Text>
+                <Text style={styles.winnerName}>{winnerPlayer.nickname}</Text>
+                <Image source={{ uri: winnerSub.memeCard.image_url }} style={styles.bigImg} />
+                <Text style={styles.memeTitleLarge}>{winnerSub.memeCard.title}</Text>
+              </View>
+            </FadeIn>
           ) : null}
 
           <Text style={[styles.label, { marginTop: 24 }]}>УСІ ВАРІАНТИ</Text>
-          {view.submissions.map((sub) => {
+          {view.submissions.map((sub, i) => {
             const player = view.players.find((p) => p.id === sub.playerId);
             const isWinner = sub.id === view.roundWinner?.submissionId;
             return (
-              <View key={sub.id} style={[styles.subCard, isWinner && styles.subCardWinner]}>
-                <Image source={{ uri: sub.memeCard.image_url }} style={styles.subImg} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.subMemeTitle} numberOfLines={2}>{sub.memeCard.title}</Text>
-                  <Text style={styles.subPlayer}>від {player?.nickname ?? '?'}</Text>
+              <DropIn key={sub.id} delay={i * 200}>
+                <View style={[styles.bigSubCard, isWinner && styles.bigSubCardWinner]}>
+                  <Image source={{ uri: sub.memeCard.image_url }} style={styles.bigSubImg} />
+                  <View style={styles.bigSubMeta}>
+                    <Text style={styles.bigSubTitle} numberOfLines={2}>{sub.memeCard.title}</Text>
+                    <Text style={styles.bigSubPlayer}>від {player?.nickname ?? '?'}</Text>
+                  </View>
                 </View>
-              </View>
+              </DropIn>
             );
           })}
 
           <Text style={[styles.label, { marginTop: 24 }]}>РАХУНОК</Text>
           {view.players.map((p) => (
             <View key={p.id} style={styles.scoreRow}>
-              <Text style={styles.scoreName}>{p.nickname}{p.id === view.myId ? ' (ти)' : ''}</Text>
+              <Text style={styles.scoreName}>
+                {p.nickname}
+                {p.id === view.myId ? ' (ти)' : ''}
+              </Text>
               <Text style={styles.scoreVal}>★ {p.score}</Text>
             </View>
           ))}
 
-          {isHost && (
+          {isHost ? (
             <TouchableOpacity onPress={onNextRound} style={[styles.btnPrimary, { marginTop: 24 }]}>
               <Text style={styles.btnPrimaryText}>
                 {view.round >= view.totalRounds ? 'Подивитись фінал' : 'Наступний раунд →'}
               </Text>
             </TouchableOpacity>
-          )}
-          {!isHost && (
+          ) : (
             <Text style={styles.waiting}>Чекаємо хоста для наступного раунду…</Text>
           )}
         </ScrollView>
@@ -111,7 +117,6 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
 
   // ============= VOTE =============
   if (view.phase === 'vote') {
-    const canVoteFor = (subPlayerId: string) => subPlayerId !== view.myId;
     return (
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <ScrollView contentContainerStyle={{ padding: 20 }}>
@@ -119,28 +124,25 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           <Text style={styles.label}>СИТУАЦІЯ</Text>
           <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
-          <Text style={[styles.label, { marginTop: 24 }]}>ОБЕРИ НАЙСМІШНІШИЙ (не за свій)</Text>
-          {view.submissions.map((sub) => {
-            const isMine = sub.playerId === view.myId;
+          <Text style={[styles.label, { marginTop: 24 }]}>ОБЕРИ НАЙСМІШНІШИЙ (можна і за свій)</Text>
+          {view.submissions.map((sub, i) => {
             const voted = view.myVotedSubmissionId === sub.id;
+            const isMine = sub.playerId === view.myId;
             return (
-              <TouchableOpacity
-                key={sub.id}
-                disabled={!canVoteFor(sub.playerId) || !!view.myVotedSubmissionId}
-                onPress={() => onVote(sub.id)}
-                style={[
-                  styles.voteCard,
-                  voted && styles.voteCardSelected,
-                  isMine && { opacity: 0.4 },
-                ]}
-              >
-                <Image source={{ uri: sub.memeCard.image_url }} style={styles.voteImg} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={styles.subMemeTitle} numberOfLines={2}>{sub.memeCard.title}</Text>
-                  {isMine && <Text style={styles.subPlayer}>(твій вибір)</Text>}
-                  {voted && <Text style={styles.votedBadge}>✓ Твій голос</Text>}
-                </View>
-              </TouchableOpacity>
+              <DropIn key={sub.id} delay={i * 250}>
+                <TouchableOpacity
+                  disabled={!!view.myVotedSubmissionId}
+                  onPress={() => onVote(sub.id)}
+                  style={[styles.bigSubCard, voted && styles.bigSubCardVoted]}
+                >
+                  <Image source={{ uri: sub.memeCard.image_url }} style={styles.bigSubImg} />
+                  <View style={styles.bigSubMeta}>
+                    <Text style={styles.bigSubTitle} numberOfLines={2}>{sub.memeCard.title}</Text>
+                    {isMine && <Text style={styles.bigSubPlayer}>(твій вибір)</Text>}
+                    {voted && <Text style={styles.votedBadge}>✓ Твій голос</Text>}
+                  </View>
+                </TouchableOpacity>
+              </DropIn>
             );
           })}
           {view.myVotedSubmissionId && (
@@ -151,33 +153,37 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
     );
   }
 
-  // ============= PICK =============
+  // ============= PICK (с веером руки) =============
+  const pickedMemeId = (() => {
+    if (!view.myPickedSubmissionId) return null;
+    // ВАЖНО: в фазе pick submissions ещё не shared (мы их не отдаём ClientView в pick),
+    // поэтому индикатор "обрано" рисуем только когда myPickedSubmissionId стал не null.
+    // Сама карта уже отсутствует в myHand (host удалил после submit).
+    return -1;
+  })();
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <RoundHeader view={view} />
         <Text style={styles.label}>СИТУАЦІЯ</Text>
         <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
-        <Text style={[styles.label, { marginTop: 24 }]}>ТВОЯ РУКА — ОБЕРИ МЕМ</Text>
-        {view.myHand.map((meme) => {
-          const isPicked = view.myPickedSubmissionId &&
-            view.submissions.some((s) => s.id === view.myPickedSubmissionId && s.memeCard.id === meme.id);
-          return (
-            <TouchableOpacity
-              key={meme.id}
-              disabled={!!view.myPickedSubmissionId}
-              onPress={() => onSubmit(meme.id)}
-              style={[styles.memeCard, isPicked && styles.memeCardSelected]}
-            >
-              <Image source={{ uri: meme.image_url }} style={styles.memeImg} />
-              <Text style={styles.memeTitle} numberOfLines={2}>{meme.title}</Text>
-              {isPicked && <Text style={styles.pickedBadge}>✓ Обрано</Text>}
-            </TouchableOpacity>
-          );
-        })}
+        <Text style={[styles.label, { marginTop: 24, marginBottom: 6 }]}>
+          ТВОЯ РУКА — ОБЕРИ МЕМ
+        </Text>
+
+        <View style={{ marginTop: 8 }}>
+          <FannedHand
+            hand={view.myHand}
+            onPick={(id) => onSubmit(id)}
+            disabled={!!view.myPickedSubmissionId}
+            pickedId={pickedMemeId}
+          />
+        </View>
+
         {view.myPickedSubmissionId && (
-          <Text style={styles.waiting}>Чекаємо інших гравців…</Text>
+          <Text style={styles.waiting}>✓ Вибір зроблено. Чекаємо інших…</Text>
         )}
       </ScrollView>
     </View>
@@ -190,9 +196,7 @@ function RoundHeader({ view }: { view: ClientView }) {
       <Text style={styles.roundText}>
         Раунд {view.round} / {view.totalRounds}
       </Text>
-      <Text style={styles.roundText}>
-        {view.players.length} гравців
-      </Text>
+      <Text style={styles.roundText}>{view.players.length} гравців</Text>
     </View>
   );
 }
@@ -203,33 +207,38 @@ const styles = StyleSheet.create({
   roundText: { color: '#6B7280', fontSize: 13, fontWeight: '500' },
 
   label: { fontSize: 11, fontWeight: '600', color: '#6B7280', letterSpacing: 1, marginBottom: 8, marginTop: 16 },
-  situation: { fontSize: 18, fontWeight: '600', color: '#FFFFFF', backgroundColor: '#2563EB', padding: 18, borderRadius: 14, lineHeight: 25 },
+  situation: { fontSize: 17, fontWeight: '600', color: '#FFFFFF', backgroundColor: '#2563EB', padding: 18, borderRadius: 14, lineHeight: 24 },
 
-  memeCard: { backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, overflow: 'hidden' },
-  memeCardSelected: { borderColor: '#2563EB', borderWidth: 2 },
-  memeImg: { width: '100%', height: 180, backgroundColor: '#F3F4F6' },
-  memeTitle: { fontSize: 14, color: '#111827', padding: 12, fontWeight: '500' },
-  pickedBadge: { position: 'absolute', top: 8, right: 8, padding: 6, backgroundColor: '#2563EB', color: '#FFFFFF', borderRadius: 6, fontSize: 11, fontWeight: '700' },
-
-  voteCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, padding: 10, alignItems: 'center' },
-  voteCardSelected: { borderColor: '#2563EB', borderWidth: 2, backgroundColor: '#EFF6FF' },
-  voteImg: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#F3F4F6' },
-
-  subCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 10, padding: 10, alignItems: 'center' },
-  subCardWinner: { borderColor: '#F59E0B', borderWidth: 2, backgroundColor: '#FEF3C7' },
-  subImg: { width: 70, height: 70, borderRadius: 6, backgroundColor: '#F3F4F6' },
-  subMemeTitle: { fontSize: 13, color: '#111827', fontWeight: '600' },
-  subPlayer: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  // Big submission cards (vote and reveal phase)
+  bigSubCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14,
+    borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden',
+    elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+  },
+  bigSubCardWinner: { borderColor: '#F59E0B', borderWidth: 3, backgroundColor: '#FFFBEB' },
+  bigSubCardVoted: { borderColor: '#2563EB', borderWidth: 3, backgroundColor: '#EFF6FF' },
+  bigSubImg: { width: '100%', height: 260, backgroundColor: '#F3F4F6' },
+  bigSubMeta: { padding: 12 },
+  bigSubTitle: { fontSize: 14, color: '#111827', fontWeight: '600' },
+  bigSubPlayer: { fontSize: 12, color: '#6B7280', marginTop: 4 },
   votedBadge: { fontSize: 12, color: '#2563EB', fontWeight: '700', marginTop: 4 },
 
-  scoreRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, marginBottom: 6 },
+  scoreRow: {
+    flexDirection: 'row', justifyContent: 'space-between', padding: 12,
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 10, marginBottom: 6,
+  },
   scoreName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   scoreVal: { fontSize: 14, fontWeight: '700', color: '#2563EB' },
 
-  winnerCard: { backgroundColor: '#FEF3C7', borderRadius: 16, padding: 16, marginTop: 16, alignItems: 'center' },
+  winnerCard: {
+    backgroundColor: '#FEF3C7', borderRadius: 18, padding: 18,
+    marginTop: 16, alignItems: 'center',
+  },
   winnerLabel: { fontSize: 11, fontWeight: '700', color: '#92400E', letterSpacing: 1, marginBottom: 6 },
-  winnerName: { fontSize: 22, fontWeight: '700', color: '#78350F', marginBottom: 12 },
-  bigImg: { width: '100%', height: 240, borderRadius: 12, backgroundColor: '#fff' },
+  winnerName: { fontSize: 24, fontWeight: '800', color: '#78350F', marginBottom: 12 },
+  bigImg: { width: '100%', height: 280, borderRadius: 14, backgroundColor: '#fff' },
+  memeTitleLarge: { fontSize: 15, fontWeight: '600', color: '#78350F', marginTop: 12 },
 
   waiting: { textAlign: 'center', color: '#6B7280', marginTop: 20, fontStyle: 'italic' },
 
@@ -239,7 +248,10 @@ const styles = StyleSheet.create({
   bigTitle: { fontSize: 32, fontWeight: '700', color: '#111827' },
   sub: { fontSize: 16, color: '#6B7280', marginTop: 8 },
   podium: { marginTop: 24 },
-  podiumRow: { flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 8 },
+  podiumRow: {
+    flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: '#FFFFFF',
+    borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 8,
+  },
   podiumPlace: { fontSize: 20, fontWeight: '700', color: '#2563EB', width: 40 },
   podiumName: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
   podiumScore: { fontSize: 14, fontWeight: '700', color: '#2563EB' },

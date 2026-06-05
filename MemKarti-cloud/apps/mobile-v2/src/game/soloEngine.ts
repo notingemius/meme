@@ -1,17 +1,11 @@
 // Простой соло-режим — играй один против "AI-судьи".
-// Каждый раунд:
-//   1. Случайная ситуация
-//   2. 5 мемов в руке игрока
-//   3. Игрок выбирает мем
-//   4. "AI-судья" даёт оценку (0-3 очка) на основе случая
-//   5. Через 5 раундов — итог
+// 5 раундов. У игрока в руке всегда 8 карт (на старте раздаются + добираются после сыгранной).
 import { SITUATIONS, MEME_CARDS, type Situation, type MemeCard } from './deck';
 
 export type SoloRound = {
   situation: Situation;
-  hand: MemeCard[]; // 5 карт
   picked?: MemeCard;
-  score?: number; // 0-3 очка которые "судья" дал
+  score?: number; // 0-3 очка от "AI-судьи"
 };
 
 export type SoloGameState = {
@@ -19,10 +13,13 @@ export type SoloGameState = {
   currentRoundIndex: number;
   totalScore: number;
   isFinished: boolean;
+
+  hand: MemeCard[];        // всегда HAND_SIZE карт (пока хватает в колоде)
+  usedMemeIds: number[];   // мемы уже розданные/сыгранные
 };
 
 const ROUNDS_PER_GAME = 5;
-const HAND_SIZE = 5;
+export const HAND_SIZE = 8;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -38,33 +35,31 @@ function pickRandom<T>(arr: T[], count: number): T[] {
 }
 
 export function createSoloGame(): SoloGameState {
-  const usedMemeIds = new Set<number>();
+  const used = new Set<number>();
   const situations = pickRandom(SITUATIONS, ROUNDS_PER_GAME);
+  const rounds: SoloRound[] = situations.map((situation) => ({ situation }));
 
-  const rounds: SoloRound[] = situations.map((situation) => {
-    // Выбираем 5 уникальных мемов которые ещё не выпадали в этой игре
-    const availableMemes = MEME_CARDS.filter((m) => !usedMemeIds.has(m.id));
-    const hand = pickRandom(availableMemes, HAND_SIZE);
-    hand.forEach((m) => usedMemeIds.add(m.id));
-    return { situation, hand };
-  });
+  // Стартовая рука 8 карт
+  const available = MEME_CARDS.filter((m) => !used.has(m.id));
+  const hand = pickRandom(available, HAND_SIZE);
+  hand.forEach((m) => used.add(m.id));
 
   return {
     rounds,
     currentRoundIndex: 0,
     totalScore: 0,
     isFinished: false,
+    hand,
+    usedMemeIds: Array.from(used),
   };
 }
 
-// "AI-судья" — даёт случайную оценку 1-3.
-// (Поскольку у нас нет другого игрока, рандом эмулирует "субъективное мнение".)
 function judgePick(_pick: MemeCard, _situation: Situation): number {
   const r = Math.random();
-  if (r < 0.15) return 0; // 15% — "не зашло"
-  if (r < 0.55) return 1; // 40% — "норм"
-  if (r < 0.85) return 2; // 30% — "хорошо"
-  return 3; // 15% — "огонь!"
+  if (r < 0.15) return 0;
+  if (r < 0.55) return 1;
+  if (r < 0.85) return 2;
+  return 3;
 }
 
 export function pickCard(state: SoloGameState, memeId: number): SoloGameState {
@@ -72,7 +67,7 @@ export function pickCard(state: SoloGameState, memeId: number): SoloGameState {
   const round = state.rounds[state.currentRoundIndex];
   if (!round || round.picked) return state;
 
-  const picked = round.hand.find((m) => m.id === memeId);
+  const picked = state.hand.find((m) => m.id === memeId);
   if (!picked) return state;
 
   const score = judgePick(picked, round.situation);
@@ -81,20 +76,40 @@ export function pickCard(state: SoloGameState, memeId: number): SoloGameState {
   const newRounds = [...state.rounds];
   newRounds[state.currentRoundIndex] = updatedRound;
 
+  // Убираем сыгранную карту из руки
+  const handWithout = state.hand.filter((m) => m.id !== memeId);
+
   return {
     ...state,
     rounds: newRounds,
     totalScore: state.totalScore + score,
+    hand: handWithout,
   };
 }
 
 export function nextRound(state: SoloGameState): SoloGameState {
   if (state.isFinished) return state;
+
+  // Доливаем руку до HAND_SIZE
+  const used = new Set(state.usedMemeIds);
+  const need = HAND_SIZE - state.hand.length;
+  let refilled = state.hand;
+  let newUsedIds = state.usedMemeIds;
+  if (need > 0) {
+    const available = MEME_CARDS.filter((m) => !used.has(m.id));
+    const refill = pickRandom(available, Math.min(need, available.length));
+    refill.forEach((m) => used.add(m.id));
+    refilled = [...state.hand, ...refill];
+    newUsedIds = Array.from(used);
+  }
+
   const nextIdx = state.currentRoundIndex + 1;
   const finished = nextIdx >= state.rounds.length;
   return {
     ...state,
     currentRoundIndex: finished ? state.currentRoundIndex : nextIdx,
     isFinished: finished,
+    hand: refilled,
+    usedMemeIds: newUsedIds,
   };
 }

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { LanHost, LanClient, getLocalIp, Peer } from '@/game/lanNet';
+import { LanHost, LanClient, getLocalIp, scanSubnet, type FoundHost, Peer } from '@/game/lanNet';
 import {
   createLobby,
   addPlayer,
@@ -87,15 +87,15 @@ export default function WifiScreen() {
           }}
           style={[styles.btnSecondary, { marginTop: 12 }]}
         >
-          <Text style={styles.btnSecondaryText}>Приєднатись до кімнати</Text>
+          <Text style={styles.btnSecondaryText}>Знайти / приєднатись</Text>
         </TouchableOpacity>
 
         <View style={styles.howCard}>
           <Text style={styles.howTitle}>Як це працює</Text>
-          <Text style={styles.howLine}>1. Один грець натискає «Створити кімнату» — отримує свій IP</Text>
-          <Text style={styles.howLine}>2. Інші вводять цей IP, натискають «Підключитись»</Text>
-          <Text style={styles.howLine}>3. Коли всі зібрались — хост починає гру</Text>
-          <Text style={styles.howLine}>4. 5 раундів, голосуєте за найкращий мем</Text>
+          <Text style={styles.howLine}>1. Один грає за хоста — отримує IP</Text>
+          <Text style={styles.howLine}>2. Інші натискають «Знайти» — телефон сам сканує мережу</Text>
+          <Text style={styles.howLine}>3. Тапни на знайденого хоста — підключишся</Text>
+          <Text style={styles.howLine}>4. Хост починає гру — у кожного 8 мемів</Text>
         </View>
       </ScrollView>
     </View>
@@ -124,7 +124,7 @@ function HostFlow({
   const updateState = (newState: LanGameState) => {
     stateRef.current = newState;
     setState(newState);
-    // broadcast personal view to each peer
+    // broadcast each peer
     for (const [peerId, peer] of peersRef.current.entries()) {
       const view = viewForPlayer(newState, peerId);
       const msg: ServerMsg = { t: 'view', view };
@@ -144,6 +144,14 @@ function HostFlow({
       try {
         const host = new LanHost();
         host.onPeerConnected((peer) => {
+          // Сразу шлём serverInfo — для сканеров (они отключатся, не делая hello).
+          const info: ServerMsg = {
+            t: 'serverInfo',
+            nickname,
+            players: stateRef.current.players.length,
+          };
+          peer.send(info);
+
           peer.onMessage((line) => {
             try {
               const msg = JSON.parse(line) as ClientMsg;
@@ -162,8 +170,10 @@ function HostFlow({
             }
           });
           peer.onClose(() => {
-            peersRef.current.delete(peer.id);
-            updateState(removePlayer(stateRef.current, peer.id));
+            if (peersRef.current.has(peer.id)) {
+              peersRef.current.delete(peer.id);
+              updateState(removePlayer(stateRef.current, peer.id));
+            }
           });
         });
         await host.start();
@@ -176,9 +186,9 @@ function HostFlow({
       mounted = false;
       hostRef.current?.stop();
     };
-  }, []);
+  }, [nickname]);
 
-  // Хост-локальные действия (submit/vote от лица хоста)
+  // Хост-локальные действия
   const onHostSubmit = (memeCardId: number) => {
     updateState(submitPick(stateRef.current, 'host', memeCardId));
   };
@@ -201,7 +211,6 @@ function HostFlow({
     );
   }
 
-  // Лобби-режим показывает IP + список игроков
   if (state.phase === 'lobby') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F9FAFB', paddingTop: insets.top + 16 }}>
@@ -211,7 +220,7 @@ function HostFlow({
           </TouchableOpacity>
           <Text style={styles.title}>Ти — хост</Text>
           <View style={styles.ipBox}>
-            <Text style={styles.ipLabel}>ТВІЙ IP (передай друзям)</Text>
+            <Text style={styles.ipLabel}>ТВІЙ IP (інші можуть знайти через «Знайти»)</Text>
             <Text style={styles.ipValue}>{ip ?? 'Завантаження…'}</Text>
           </View>
           <Text style={styles.sectionLabel}>ГРАВЦІ ({state.players.length})</Text>
@@ -238,7 +247,6 @@ function HostFlow({
     );
   }
 
-  // В игре — рендерим UI игры от лица хоста
   const view = viewForPlayer(state, 'host');
   return (
     <LanGameUI
@@ -254,7 +262,7 @@ function HostFlow({
 }
 
 // ============================================================================
-// JOIN FLOW (клиент)
+// JOIN FLOW (клиент): сканирует сеть + список найденных
 // ============================================================================
 function JoinFlow({
   insets,
@@ -270,6 +278,10 @@ function JoinFlow({
   const [myId, setMyId] = useState<string | null>(null);
   const [view, setView] = useState<ClientView | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null);
+  const [found, setFound] = useState<FoundHost[]>([]);
+
   const clientRef = useRef<LanClient | null>(null);
   const peerRef = useRef<Peer | null>(null);
 
@@ -280,16 +292,30 @@ function JoinFlow({
     };
   }, []);
 
-  const connect = async () => {
-    if (!hostIp.trim()) {
-      Alert.alert('Введи IP хоста');
-      return;
+  const startScan = async () => {
+    setFound([]);
+    setScanning(true);
+    setScanProgress({ done: 0, total: 254 });
+    setErr(null);
+    try {
+      const hosts = await scanSubnet(undefined, (done, total) => setScanProgress({ done, total }));
+      setFound(hosts);
+      if (hosts.length === 0) {
+        setErr('Хостів не знайдено. Спочатку один з телефонів має створити кімнату.');
+      }
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setScanning(false);
     }
+  };
+
+  const connect = async (ipToConnect: string) => {
     setConnecting(true);
     setErr(null);
     try {
       const client = new LanClient();
-      const peer = await client.connect(hostIp.trim());
+      const peer = await client.connect(ipToConnect.trim());
       clientRef.current = client;
       peerRef.current = peer;
       peer.onMessage((line) => {
@@ -299,6 +325,8 @@ function JoinFlow({
             setMyId(msg.myId);
           } else if (msg.t === 'view') {
             setView(msg.view);
+          } else if (msg.t === 'serverInfo') {
+            // Тихо игнорируем — это для сканера
           }
         } catch {
           /* ignore */
@@ -307,7 +335,6 @@ function JoinFlow({
       peer.onClose(() => {
         setErr('Зʼєднання з хостом розірвано');
       });
-      // hello!
       const hello: ClientMsg = { t: 'hello', nickname };
       peer.send(hello);
     } catch (e: any) {
@@ -326,7 +353,7 @@ function JoinFlow({
     peerRef.current?.send(msg);
   };
 
-  // Экран ввода IP
+  // Экран ввода IP / сканера
   if (!myId) {
     return (
       <View style={{ flex: 1, backgroundColor: '#F9FAFB', paddingTop: insets.top + 16 }}>
@@ -335,9 +362,57 @@ function JoinFlow({
             <Text style={{ color: '#2563EB', fontSize: 14, fontWeight: '600' }}>← Назад</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Підключитись до гри</Text>
-          <Text style={styles.subtitle}>Введи IP хоста (він покаже його у себе).</Text>
+          <Text style={styles.subtitle}>
+            Натисни «Знайти хостів» — телефон просканує Wi-Fi мережу.
+            Або введи IP вручну.
+          </Text>
 
-          <Text style={styles.label}>IP ХОСТА</Text>
+          <TouchableOpacity
+            onPress={startScan}
+            disabled={scanning || connecting}
+            style={[styles.btnPrimary, { marginTop: 16, opacity: scanning ? 0.6 : 1 }]}
+          >
+            {scanning ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator color="#fff" />
+                <Text style={[styles.btnPrimaryText, { marginLeft: 10 }]}>
+                  Сканую {scanProgress ? `${scanProgress.done}/${scanProgress.total}` : '…'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.btnPrimaryText}>🔍 Знайти хостів у мережі</Text>
+            )}
+          </TouchableOpacity>
+
+          {found.length > 0 && (
+            <View style={{ marginTop: 24 }}>
+              <Text style={styles.label}>ЗНАЙДЕНО ХОСТІВ</Text>
+              {found.map((h) => (
+                <TouchableOpacity
+                  key={h.ip}
+                  onPress={() => connect(h.ip)}
+                  disabled={connecting}
+                  style={styles.foundRow}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.foundNick}>
+                      {h.nickname ? `🎮 ${h.nickname}` : '🎮 Хост'}
+                    </Text>
+                    <Text style={styles.foundIp}>{h.ip}{typeof h.players === 'number' ? ` · ${h.players} гравців` : ''}</Text>
+                  </View>
+                  <Text style={styles.foundArrow}>→</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>або</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Text style={styles.label}>IP ХОСТА (вручну)</Text>
           <TextInput
             value={hostIp}
             onChangeText={setHostIp}
@@ -346,16 +421,21 @@ function JoinFlow({
             keyboardType="numeric"
             style={styles.input}
           />
-
           <TouchableOpacity
-            onPress={connect}
+            onPress={() => {
+              if (!hostIp.trim()) {
+                Alert.alert('Введи IP');
+                return;
+              }
+              connect(hostIp.trim());
+            }}
             disabled={connecting}
-            style={[styles.btnPrimary, { marginTop: 24, opacity: connecting ? 0.6 : 1 }]}
+            style={[styles.btnSecondary, { marginTop: 12, opacity: connecting ? 0.6 : 1 }]}
           >
             {connecting ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#2563EB" />
             ) : (
-              <Text style={styles.btnPrimaryText}>Підключитись</Text>
+              <Text style={styles.btnSecondaryText}>Підключитись вручну</Text>
             )}
           </TouchableOpacity>
 
@@ -383,7 +463,6 @@ function JoinFlow({
     );
   }
 
-  // Клиент в лобби
   if (view.phase === 'lobby') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F9FAFB', paddingTop: insets.top + 16 }}>
@@ -439,7 +518,7 @@ const styles = StyleSheet.create({
   howLine: { fontSize: 13, color: '#4B5563', marginBottom: 4 },
 
   ipBox: { marginTop: 16, padding: 20, borderRadius: 14, backgroundColor: '#2563EB', alignItems: 'center' },
-  ipLabel: { color: '#BFDBFE', fontSize: 11, fontWeight: '600', letterSpacing: 1 },
+  ipLabel: { color: '#BFDBFE', fontSize: 11, fontWeight: '600', letterSpacing: 1, textAlign: 'center' },
   ipValue: { color: '#FFFFFF', fontSize: 28, fontWeight: '700', marginTop: 8 },
 
   playerRow: {
@@ -456,4 +535,17 @@ const styles = StyleSheet.create({
   errText: { fontSize: 13, color: '#7F1D1D', marginBottom: 24, lineHeight: 19 },
   errInline: { padding: 12, marginTop: 12, borderRadius: 8, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' },
   errInlineText: { fontSize: 13, color: '#7F1D1D' },
+
+  foundRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 16, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#2563EB',
+    marginBottom: 10,
+  },
+  foundNick: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  foundIp: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  foundArrow: { fontSize: 20, color: '#2563EB', fontWeight: '700' },
+
+  divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { color: '#9CA3AF', fontSize: 12, marginHorizontal: 12, fontWeight: '500' },
 });

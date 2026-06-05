@@ -161,3 +161,103 @@ export async function getLocalIp(): Promise<string | null> {
     return null;
   }
 }
+
+// ----------------------------------------------------------------------------
+// Сканер подсети — найти хостов в LAN без ввода IP.
+// ----------------------------------------------------------------------------
+// Алгоритм:
+//   1. Определить свой IP (например 192.168.1.42)
+//   2. Параллельно попробовать TCP-connect к каждому IP в подсети на DEFAULT_PORT
+//   3. Кто принял подключение — хост МемКарт
+//   4. Если хост отправит сразу serverInfo — узнаем его ник; иначе показываем IP
+// ----------------------------------------------------------------------------
+
+export type FoundHost = {
+  ip: string;
+  nickname?: string;
+  players?: number;
+};
+
+function tryProbe(ip: string, port: number, timeoutMs: number): Promise<FoundHost | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let socket: any = null;
+    const finish = (val: FoundHost | null) => {
+      if (settled) return;
+      settled = true;
+      try {
+        socket?.destroy();
+      } catch {
+        /* ignore */
+      }
+      resolve(val);
+    };
+
+    try {
+      socket = TcpSocket.createConnection({ host: ip, port } as any, () => {
+        // Подключились — это хост. Слушаем serverInfo (если хост его шлёт).
+        let buf = '';
+        socket.setEncoding('utf8');
+        socket.on('data', (d: string | Buffer) => {
+          buf += typeof d === 'string' ? d : d.toString('utf8');
+          const idx = buf.indexOf('\n');
+          if (idx >= 0) {
+            const line = buf.slice(0, idx).trim();
+            try {
+              const msg = JSON.parse(line);
+              if (msg.t === 'serverInfo') {
+                finish({ ip, nickname: msg.nickname, players: msg.players });
+                return;
+              }
+            } catch {
+              /* ignore */
+            }
+            finish({ ip });
+          }
+        });
+        // Если хост не шлёт serverInfo за timeoutMs/2 — просто помечаем ip как доступный
+        setTimeout(() => finish({ ip }), Math.max(300, timeoutMs / 2));
+      });
+      socket.on('error', () => finish(null));
+      socket.on('timeout', () => finish(null));
+      setTimeout(() => finish(null), timeoutMs);
+    } catch {
+      finish(null);
+    }
+  });
+}
+
+export async function scanSubnet(
+  port: number = DEFAULT_PORT,
+  onProgress?: (done: number, total: number) => void,
+): Promise<FoundHost[]> {
+  const myIp = await getLocalIp();
+  if (!myIp) return [];
+  const parts = myIp.split('.');
+  if (parts.length !== 4) return [];
+  const base = `${parts[0]}.${parts[1]}.${parts[2]}.`;
+
+  const found: FoundHost[] = [];
+  const BATCH = 32;
+  const total = 254;
+  let done = 0;
+
+  for (let start = 1; start <= 254; start += BATCH) {
+    const batch: Promise<FoundHost | null>[] = [];
+    for (let i = start; i < Math.min(start + BATCH, 255); i++) {
+      const ip = `${base}${i}`;
+      if (ip === myIp) {
+        done++;
+        continue;
+      }
+      batch.push(tryProbe(ip, port, 800));
+    }
+    const results = await Promise.all(batch);
+    for (const r of results) {
+      if (r) found.push(r);
+    }
+    done = Math.min(done + BATCH, total);
+    onProgress?.(done, total);
+  }
+  return found;
+}
