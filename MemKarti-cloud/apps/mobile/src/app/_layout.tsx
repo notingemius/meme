@@ -20,6 +20,9 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 void SplashScreen.preventAutoHideAsync();
 
+// DEBUG: marker that the _layout.tsx module was loaded by metroRequire
+console.log('[MK-DEBUG] _layout.tsx module loaded');
+
 const SPLASH_TIMEOUT_MS = 10_000;
 
 const queryClient = new QueryClient({
@@ -34,11 +37,19 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
+  console.log('[MK-DEBUG] RootLayout: render start');
   const { initiate } = useAuth();
+  console.log('[MK-DEBUG] RootLayout: useAuth() returned');
 
   // Завантажуємо збережену сесію у фоні (для онлайн-режиму).
   useEffect(() => {
-    initiate();
+    console.log('[MK-DEBUG] RootLayout: calling initiate()');
+    try {
+      initiate();
+      console.log('[MK-DEBUG] RootLayout: initiate() returned');
+    } catch (e) {
+      console.log('[MK-DEBUG] RootLayout: initiate() THREW', String(e));
+    }
   }, [initiate]);
 
   // ВАЖЛИВО (фікс білого екрану / splash-hold): splash тримається нативним
@@ -49,9 +60,10 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
     const hide = () => {
-      SplashScreen.hideAsync().catch(() => {
-        // splash вже сховано або модуль недоступний — ігноруємо
-      });
+      console.log('[MK-DEBUG] RootLayout: calling SplashScreen.hideAsync()');
+      SplashScreen.hideAsync()
+        .then(() => console.log('[MK-DEBUG] SplashScreen.hideAsync resolved'))
+        .catch((e) => console.log('[MK-DEBUG] SplashScreen.hideAsync rejected', String(e)));
     };
     // Невелика затримка, щоб перший кадр UI встиг змонтуватися.
     const t = setTimeout(() => {
