@@ -14,6 +14,8 @@ import { HandPicker } from './HandPicker';
 import { DropIn, FadeIn } from './RevealAnimation';
 import { Avatar } from './Avatar';
 import { PhaseTimer } from './PhaseTimer';
+import { Confetti } from './Confetti';
+import { FlipCard } from './FlipCard';
 
 type Props = {
   view: ClientView;
@@ -33,6 +35,7 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
     const top = sorted[0];
     return (
       <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
+        <Confetti />
         <ScrollView contentContainerStyle={{ padding: 20 }}>
           <Text style={styles.bigTitle}>🏆 Гру завершено</Text>
           <Text style={styles.sub}>
@@ -193,20 +196,24 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
             const voted = view.myVotedSubmissionId === sub.id;
             const isMine = sub.playerId === view.myId;
             return (
-              <DropIn key={sub.id} delay={i * 250}>
-                <TouchableOpacity
-                  disabled={!!view.myVotedSubmissionId}
-                  onPress={() => onVote(sub.id)}
-                  style={[styles.bigSubCard, voted && styles.bigSubCardVoted]}
-                >
-                  <Image source={{ uri: sub.memeCard.image_url }} style={styles.bigSubImg} />
-                  <View style={styles.bigSubMeta}>
-                    <Text style={styles.bigSubTitle} numberOfLines={2}>{sub.memeCard.title}</Text>
-                    {isMine && <Text style={styles.bigSubPlayer}>(твій вибір)</Text>}
-                    {voted && <Text style={styles.votedBadge}>✓ Твій голос</Text>}
-                  </View>
-                </TouchableOpacity>
-              </DropIn>
+              <TouchableOpacity
+                key={sub.id}
+                disabled={!!view.myVotedSubmissionId}
+                onPress={() => onVote(sub.id)}
+                activeOpacity={0.85}
+                style={[styles.bigSubCardWrap, voted && styles.bigSubCardVoted]}
+              >
+                <FlipCard
+                  imageUrl={sub.memeCard.image_url}
+                  title={sub.memeCard.title}
+                  height={260}
+                  delay={i * 400 + 200}
+                />
+                <View style={styles.bigSubMeta}>
+                  {isMine && <Text style={styles.bigSubPlayer}>(твій вибір)</Text>}
+                  {voted && <Text style={styles.votedBadge}>✓ Твій голос</Text>}
+                </View>
+              </TouchableOpacity>
             );
           })}
           {view.myVotedSubmissionId && (
@@ -317,6 +324,10 @@ const styles = StyleSheet.create({
   bigSubCard: {
     backgroundColor: '#FFFFFF', borderRadius: 14, marginBottom: 14,
     borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden',
+    elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+  },
+  bigSubCardWrap: {
+    marginBottom: 14, borderRadius: 14, overflow: 'hidden',
     elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
   },
   bigSubCardWinner: { borderColor: '#F59E0B', borderWidth: 3, backgroundColor: '#FFFBEB' },

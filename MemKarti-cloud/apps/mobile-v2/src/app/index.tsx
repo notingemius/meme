@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { randomNick } from '@/game/nickGen';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -87,7 +88,16 @@ export default function HomeScreen() {
                 : 'Введи код від друга, щоб приєднатись'}
             </Text>
 
-            <Text style={styles.inputLabel}>ТВІЙ НІК</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.inputLabel}>ТВІЙ НІК</Text>
+              <TouchableOpacity
+                onPress={() => setNickname(randomNick())}
+                style={styles.diceBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.diceBtnText}>🎲 Випадковий</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               value={nickname}
               onChangeText={setNickname}
@@ -190,6 +200,8 @@ const styles = StyleSheet.create({
   formSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 4 },
 
   inputLabel: { fontSize: 12, color: '#6B7280', marginBottom: 6, marginTop: 20, fontWeight: '500' },
+  diceBtn: { backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginTop: 14 },
+  diceBtnText: { fontSize: 12, color: '#2563EB', fontWeight: '600' },
   input: {
     borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
     paddingHorizontal: 14, paddingVertical: 12,

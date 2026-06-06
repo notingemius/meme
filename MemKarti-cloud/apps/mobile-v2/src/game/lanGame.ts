@@ -41,6 +41,14 @@ export const DEFAULT_SETTINGS: GameSettings = {
   voteSeconds: 20,
 };
 
+export type ChatMessage = {
+  id: string;
+  playerId: string;
+  nickname: string;
+  text: string;
+  ts: number;
+};
+
 export type LanGameState = {
   phase: Phase;
   players: Player[];
@@ -55,6 +63,8 @@ export type LanGameState = {
   roundWinner: { playerId: string; submissionId: string } | null;
   // Все мемы, которые уже были розданы (или сыграны) — чтобы не повторялись
   usedMemeIds: number[];
+  // Чат в лобби — сохраняется хост, рассылается всем
+  chat: ChatMessage[];
 };
 
 export type ClientView = {
@@ -78,6 +88,7 @@ export type ClientView = {
   myVotedSubmissionId: string | null;
   roundWinner: { playerId: string; submissionId: string } | null;
   myId: string;
+  chat: ChatMessage[];
 };
 
 export const HAND_SIZE = 8;
@@ -128,7 +139,28 @@ export function createLobby(
     votes: {},
     roundWinner: null,
     usedMemeIds: [],
+    chat: [],
   };
+}
+
+// Добавить сообщение в чат. Храним только последние 50.
+export function postChatMessage(
+  state: LanGameState,
+  playerId: string,
+  text: string,
+): LanGameState {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return state;
+  const trimmed = text.trim().slice(0, 200);
+  if (!trimmed) return state;
+  const msg: ChatMessage = {
+    id: Math.random().toString(36).slice(2, 10),
+    playerId,
+    nickname: player.nickname,
+    text: trimmed,
+    ts: Date.now(),
+  };
+  return { ...state, chat: [...state.chat, msg].slice(-50) };
 }
 
 // Обновить настройки игры (только в лобби; после старта игнорируется).
@@ -302,6 +334,7 @@ export function viewForPlayer(state: LanGameState, myId: string): ClientView {
     myVotedSubmissionId: state.votes[myId] ?? null,
     roundWinner: state.phase === 'reveal' ? state.roundWinner : null,
     myId,
+    chat: state.chat,
   };
 }
 
@@ -311,7 +344,8 @@ export function viewForPlayer(state: LanGameState, myId: string): ClientView {
 export type ClientMsg =
   | { t: 'hello'; nickname: string }
   | { t: 'submit'; memeCardId: number }
-  | { t: 'vote'; submissionId: string };
+  | { t: 'vote'; submissionId: string }
+  | { t: 'chat'; text: string };
 
 export type ServerMsg =
   | { t: 'welcome'; myId: string }

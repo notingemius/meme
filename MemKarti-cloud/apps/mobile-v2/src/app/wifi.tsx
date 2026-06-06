@@ -20,6 +20,7 @@ import {
   submitPick,
   castVote,
   updateSettings,
+  postChatMessage,
   viewForPlayer,
   type LanGameState,
   type ClientView,
@@ -31,6 +32,8 @@ import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
 import { LanGameUI } from '@/components/LanGameUI';
 import { Avatar } from '@/components/Avatar';
 import { SettingsChips } from '@/components/SettingsChips';
+import { LobbyChat } from '@/components/LobbyChat';
+import { randomNick } from '@/game/nickGen';
 
 const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Петро', 'Софія', 'Назар'];
 
@@ -61,7 +64,16 @@ export default function WifiScreen() {
           Усі телефони мають бути в одній Wi-Fi мережі (або підключитись до хотспоту одного телефону).
         </Text>
 
-        <Text style={styles.label}>ТВІЙ НІК</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={styles.label}>ТВІЙ НІК</Text>
+          <TouchableOpacity
+            onPress={() => setNickname(randomNick())}
+            style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, marginTop: 18 }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={{ fontSize: 12, color: '#2563EB', fontWeight: '600' }}>🎲 Випадковий</Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           value={nickname}
           onChangeText={setNickname}
@@ -171,6 +183,8 @@ function HostFlow({
                 updateState(submitPick(stateRef.current, peer.id, msg.memeCardId));
               } else if (msg.t === 'vote') {
                 updateState(castVote(stateRef.current, peer.id, msg.submissionId));
+              } else if (msg.t === 'chat') {
+                updateState(postChatMessage(stateRef.current, peer.id, msg.text));
               }
             } catch (e) {
               console.log('parse err', e);
@@ -236,6 +250,11 @@ function HostFlow({
   const onChangeRounds = (n: number) => updateState(updateSettings(stateRef.current, { totalRounds: n }));
   const onChangePickSec = (n: number) => updateState(updateSettings(stateRef.current, { pickSeconds: n }));
   const onChangeVoteSec = (n: number) => updateState(updateSettings(stateRef.current, { voteSeconds: n }));
+
+  // Хост шлёт сообщение в чат от своего имени.
+  const onHostChat = (text: string) => {
+    updateState(postChatMessage(stateRef.current, 'host', text));
+  };
 
   // Боты автоматически submit'ят в фазе pick (после некоторой задержки).
   useEffect(() => {
@@ -383,6 +402,12 @@ function HostFlow({
               {state.players.length < 2 ? 'Чекаємо ще гравця (або додай бота)…' : 'Почати гру'}
             </Text>
           </TouchableOpacity>
+
+          <LobbyChat
+            messages={state.chat}
+            myId="host"
+            onSend={onHostChat}
+          />
         </ScrollView>
       </View>
     );
@@ -492,6 +517,10 @@ function JoinFlow({
   };
   const onVote = (submissionId: string) => {
     const msg: ClientMsg = { t: 'vote', submissionId };
+    peerRef.current?.send(msg);
+  };
+  const onChat = (text: string) => {
+    const msg: ClientMsg = { t: 'chat', text };
     peerRef.current?.send(msg);
   };
 
@@ -625,6 +654,12 @@ function JoinFlow({
               {p.id.startsWith('bot') && <Text style={styles.botBadge}>БОТ</Text>}
             </View>
           ))}
+
+          <LobbyChat
+            messages={view.chat}
+            myId={view.myId}
+            onSend={onChat}
+          />
         </ScrollView>
       </View>
     );
