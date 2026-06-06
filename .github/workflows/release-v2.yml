@@ -1,0 +1,161 @@
+name: Release v2 APK to GitHub
+
+# Собирает production APK v2 и публикует в GitHub Releases.
+# Триггеры:
+#   - Push в ветку release-v2: создаётся / обновляется тег v2-latest
+#   - Push тега v2.X.Y: создаётся релиз с этим тегом
+#   - Ручной запуск (workflow_dispatch) с указанием версии
+#
+# Файл APK будет доступен по ссылке:
+#   https://github.com/notingemius/meme/releases/download/<tag>/MemKarti-v2.apk
+
+on:
+  push:
+    branches:
+      - release-v2
+    tags:
+      - 'v2.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag name (e.g. v2.1.0). Empty = use v2-latest.'
+        required: false
+        default: ''
+
+concurrency:
+  group: release-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build + publish v2 release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    defaults:
+      run:
+        working-directory: MemKarti-cloud/apps/mobile-v2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Resolve tag name
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.ref_name }}" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            TAG="${{ inputs.version }}"
+          else
+            TAG="v2-latest"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.1.12297006" \
+            "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.1.12297006" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.1.12297006" >> "$GITHUB_ENV"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-v2-${{ runner.os }}-${{ hashFiles('MemKarti-cloud/apps/mobile-v2/package.json') }}
+          restore-keys: |
+            gradle-v2-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Expo prebuild
+        env:
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Configure Gradle JVM args
+        working-directory: MemKarti-cloud/apps/mobile-v2/android
+        run: |
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g"
+            echo "org.gradle.daemon=false"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.caching=true"
+          } >> gradle.properties
+
+      - name: Build release APK
+        working-directory: MemKarti-cloud/apps/mobile-v2/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a \
+            --no-daemon \
+            --stacktrace
+
+      - name: Prepare APK for release
+        id: apk
+        working-directory: MemKarti-cloud/apps/mobile-v2/android
+        shell: bash
+        run: |
+          SRC=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
+          DEST="/tmp/MemKarti-v2.apk"
+          cp "$SRC" "$DEST"
+          ls -lh "$DEST"
+          SHA=$(sha256sum "$DEST" | awk '{print $1}')
+          SIZE_MB=$(du -m "$DEST" | awk '{print $1}')
+          echo "apk_path=$DEST" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "size_mb=$SIZE_MB" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: 'МемКарти v2 — ${{ steps.tag.outputs.tag }}'
+          body: |
+            ## 📦 Завантажити
+            - **APK:** [MemKarti-v2.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/MemKarti-v2.apk) (${{ steps.apk.outputs.size_mb }} МБ)
+            - **SHA-256:** `${{ steps.apk.outputs.sha256 }}`
+            - **Commit:** ${{ github.sha }}
+
+            ## 🚀 Як встановити
+            1. Скачай APK на телефон
+            2. Дозволь установку з невідомих джерел (Налаштування → Безпека)
+            3. Тапни на скачаний файл → Встановити
+
+            > Збірка з гілки `${{ github.ref_name }}`.
+          files: ${{ steps.apk.outputs.apk_path }}
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.tag.outputs.tag, 'latest') || contains(steps.tag.outputs.tag, '-beta') }}
+          make_latest: ${{ !contains(steps.tag.outputs.tag, 'latest') }}
