@@ -12,7 +12,8 @@ import {
   type LanGameState,
 } from '@/game/lanGame';
 import { createSoloWithBots, botsSubmit, botsVote } from '@/game/soloBots';
-import { LanGameUI } from '@/components/LanGameUI';
+import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
+import { LanGameUI, PICK_SECONDS, VOTE_SECONDS } from '@/components/LanGameUI';
 
 export default function SoloScreen() {
   const insets = useSafeAreaInsets();
@@ -39,6 +40,28 @@ export default function SoloScreen() {
     const t = setTimeout(() => setState((s) => botsVote(s)), 1200);
     return () => clearTimeout(t);
   }, [state.phase, state.votes]);
+
+  // Таймер pick-фазы: если не успел — авто-пик случайной карты.
+  useEffect(() => {
+    if (state.phase !== 'pick') return;
+    const myDone = state.submissions.some((s) => s.playerId === 'host');
+    if (myDone) return;
+    const t = setTimeout(() => {
+      setState((s) => autoPickHumans(s));
+    }, PICK_SECONDS * 1000);
+    return () => clearTimeout(t);
+  }, [state.phase, state.submissions, state.round]);
+
+  // Таймер vote-фазы.
+  useEffect(() => {
+    if (state.phase !== 'vote') return;
+    const myVoted = !!state.votes['host'];
+    if (myVoted) return;
+    const t = setTimeout(() => {
+      setState((s) => autoVoteHumans(s));
+    }, VOTE_SECONDS * 1000);
+    return () => clearTimeout(t);
+  }, [state.phase, state.votes, state.round]);
 
   const handleSubmit = useCallback((memeCardId: number) => {
     setState((s) => submitPick(s, 'host', memeCardId));

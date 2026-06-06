@@ -26,7 +26,8 @@ import {
   type ServerMsg,
 } from '@/game/lanGame';
 import { botsSubmit, botsVote } from '@/game/soloBots';
-import { LanGameUI } from '@/components/LanGameUI';
+import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
+import { LanGameUI, PICK_SECONDS, VOTE_SECONDS } from '@/components/LanGameUI';
 import { Avatar } from '@/components/Avatar';
 
 const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Петро', 'Софія', 'Назар'];
@@ -254,6 +255,32 @@ function HostFlow({
     const t = setTimeout(() => updateState(botsVote(stateRef.current)), 2000);
     return () => clearTimeout(t);
   }, [state.phase, state.votes]);
+
+  // Таймер pick: автопик для тех людей, кто не успел.
+  useEffect(() => {
+    if (state.phase !== 'pick') return;
+    const allHumansPicked = state.players
+      .filter((p) => !p.id.startsWith('bot'))
+      .every((p) => state.submissions.some((s) => s.playerId === p.id));
+    if (allHumansPicked) return;
+    const t = setTimeout(() => {
+      updateState(autoPickHumans(stateRef.current));
+    }, PICK_SECONDS * 1000);
+    return () => clearTimeout(t);
+  }, [state.phase, state.submissions, state.round]);
+
+  // Таймер vote: автоголос для лагающих людей.
+  useEffect(() => {
+    if (state.phase !== 'vote') return;
+    const allHumansVoted = state.players
+      .filter((p) => !p.id.startsWith('bot'))
+      .every((p) => state.votes[p.id]);
+    if (allHumansVoted) return;
+    const t = setTimeout(() => {
+      updateState(autoVoteHumans(stateRef.current));
+    }, VOTE_SECONDS * 1000);
+    return () => clearTimeout(t);
+  }, [state.phase, state.votes, state.round]);
 
   if (err) {
     return (

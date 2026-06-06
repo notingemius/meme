@@ -10,6 +10,10 @@ import type { ClientView } from '@/game/lanGame';
 import { HandPicker } from './HandPicker';
 import { DropIn, FadeIn } from './RevealAnimation';
 import { Avatar } from './Avatar';
+import { PhaseTimer } from './PhaseTimer';
+
+export const PICK_SECONDS = 30;
+export const VOTE_SECONDS = 20;
 
 type Props = {
   view: ClientView;
@@ -143,6 +147,13 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
       <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
         <ScrollView contentContainerStyle={{ padding: 20 }}>
           <RoundHeader view={view} />
+          {!view.myVotedSubmissionId && (
+            <PhaseTimer
+              resetKey={`vote-${view.round}`}
+              totalSec={VOTE_SECONDS}
+              label="на голосування"
+            />
+          )}
           <Text style={styles.label}>СИТУАЦІЯ</Text>
           <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
@@ -180,6 +191,13 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}>
         <RoundHeader view={view} />
+        {!view.myPickedSubmissionId && (
+          <PhaseTimer
+            resetKey={`pick-${view.round}`}
+            totalSec={PICK_SECONDS}
+            label="на вибір мема"
+          />
+        )}
         <Text style={styles.label}>СИТУАЦІЯ</Text>
         <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
