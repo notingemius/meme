@@ -1,9 +1,12 @@
+import { useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   Image,
+  Animated,
+  Easing,
   StyleSheet,
 } from 'react-native';
 import type { ClientView } from '@/game/lanGame';
@@ -84,12 +87,19 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
 
           {winnerSub && winnerPlayer ? (
             <FadeIn delay={view.submissions.length * 200 + 400}>
-              <View style={styles.winnerCard}>
-                <Text style={styles.winnerLabel}>ПЕРЕМОЖЕЦЬ РАУНДУ</Text>
-                <Text style={styles.winnerName}>{winnerPlayer.nickname}</Text>
-                <Image source={{ uri: winnerSub.memeCard.image_url }} style={styles.bigImg} />
-                <Text style={styles.memeTitleLarge}>{winnerSub.memeCard.title}</Text>
-              </View>
+              <Pulse>
+                <View style={styles.winnerCard}>
+                  <Text style={styles.winnerLabel}>👑 ПЕРЕМОЖЕЦЬ РАУНДУ</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <Avatar id={winnerPlayer.id} nickname={winnerPlayer.nickname} size={48} border />
+                    <Text style={[styles.winnerName, { marginLeft: 12, marginBottom: 0 }]}>
+                      {winnerPlayer.nickname}
+                    </Text>
+                  </View>
+                  <Image source={{ uri: winnerSub.memeCard.image_url }} style={styles.bigImg} />
+                  <Text style={styles.memeTitleLarge}>{winnerSub.memeCard.title}</Text>
+                </View>
+              </Pulse>
             </FadeIn>
           ) : null}
 
@@ -97,13 +107,36 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           {view.submissions.map((sub, i) => {
             const player = view.players.find((p) => p.id === sub.playerId);
             const isWinner = sub.id === view.roundWinner?.submissionId;
+            const voters = (view.voteBreakdown[sub.id] ?? [])
+              .map((vid) => view.players.find((p) => p.id === vid))
+              .filter(Boolean) as typeof view.players;
             return (
               <DropIn key={sub.id} delay={i * 200}>
                 <View style={[styles.bigSubCard, isWinner && styles.bigSubCardWinner]}>
                   <Image source={{ uri: sub.memeCard.image_url }} style={styles.bigSubImg} />
                   <View style={styles.bigSubMeta}>
                     <Text style={styles.bigSubTitle} numberOfLines={2}>{sub.memeCard.title}</Text>
-                    <Text style={styles.bigSubPlayer}>від {player?.nickname ?? '?'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                      <Avatar id={sub.playerId} nickname={player?.nickname ?? '?'} size={20} />
+                      <Text style={[styles.bigSubPlayer, { marginLeft: 6 }]}>
+                        від {player?.nickname ?? '?'}
+                      </Text>
+                    </View>
+                    {voters.length > 0 && (
+                      <View style={styles.voteBreakdownRow}>
+                        <Text style={styles.voteBreakdownLabel}>
+                          {voters.length} {voters.length === 1 ? 'голос' : 'голоси'}:
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', flex: 1 }}>
+                          {voters.map((v) => (
+                            <View key={v.id} style={styles.voterChip}>
+                              <Avatar id={v.id} nickname={v.nickname} size={18} />
+                              <Text style={styles.voterName}>{v.nickname}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
                   </View>
                 </View>
               </DropIn>
@@ -155,6 +188,7 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           <Text style={styles.situation}>{view.situation?.text_ua}</Text>
 
           <Text style={[styles.label, { marginTop: 24 }]}>ОБЕРИ НАЙСМІШНІШИЙ (можна і за свій)</Text>
+          <WaitingFor view={view} verb="голосує" />
           {view.submissions.map((sub, i) => {
             const voted = view.myVotedSubmissionId === sub.id;
             const isMine = sub.playerId === view.myId;
@@ -201,6 +235,8 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
         <Text style={[styles.label, { marginTop: 20, marginBottom: 4 }]}>
           ТВОЯ РУКА · ГОРТАЙ ТА ОБЕРИ
         </Text>
+
+        <WaitingFor view={view} verb="обирає" />
       </ScrollView>
 
       <View style={{ marginHorizontal: -16 }}>
@@ -223,6 +259,50 @@ function RoundHeader({ view }: { view: ClientView }) {
       <Text style={styles.roundText}>{view.players.length} гравців</Text>
     </View>
   );
+}
+
+// Индикатор: чьего хода ещё ждём.
+function WaitingFor({ view, verb }: { view: ClientView; verb: string }) {
+  const done = new Set(view.doneInPhase);
+  const waiting = view.players.filter((p) => !done.has(p.id));
+  if (waiting.length === 0) return null;
+  return (
+    <View style={styles.waitingBox}>
+      <Text style={styles.waitingText}>Ще {verb}:</Text>
+      <View style={styles.waitingAvatars}>
+        {waiting.map((p) => (
+          <View key={p.id} style={styles.waitingAvatarWrap}>
+            <Avatar id={p.id} nickname={p.nickname} size={28} />
+            <Text style={styles.waitingName}>{p.nickname}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Пульс анимация — обёртка для победной карты.
+function Pulse({ children }: { children: React.ReactNode }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 1.04,
+          duration: 800,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [scale]);
+  return <Animated.View style={{ transform: [{ scale }] }}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({
@@ -284,4 +364,33 @@ const styles = StyleSheet.create({
   podiumPlace: { fontSize: 20, fontWeight: '700', color: '#2563EB', width: 40 },
   podiumName: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
   podiumScore: { fontSize: 14, fontWeight: '700', color: '#2563EB' },
+
+  // Waiting indicator
+  waitingBox: {
+    backgroundColor: '#F3F4F6', borderRadius: 12, padding: 12, marginTop: 12,
+  },
+  waitingText: {
+    fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 8,
+  },
+  waitingAvatars: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  waitingAvatarWrap: { alignItems: 'center', minWidth: 50 },
+  waitingName: { fontSize: 10, color: '#374151', marginTop: 4, fontWeight: '500' },
+
+  // Vote breakdown in reveal
+  voteBreakdownRow: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    marginTop: 10, paddingTop: 10,
+    borderTopWidth: 1, borderTopColor: '#F3F4F6',
+  },
+  voteBreakdownLabel: {
+    fontSize: 11, fontWeight: '700', color: '#2563EB',
+    letterSpacing: 0.5, marginRight: 8,
+  },
+  voterChip: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#EFF6FF', borderRadius: 12,
+    paddingVertical: 3, paddingHorizontal: 6,
+    marginRight: 6, marginBottom: 4,
+  },
+  voterName: { fontSize: 11, color: '#1E40AF', marginLeft: 4, fontWeight: '600' },
 });

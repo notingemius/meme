@@ -67,6 +67,13 @@ export type ClientView = {
   situation: Situation | null;
   myHand: MemeCard[];
   submissions: Submission[];
+  // Кто уже сделал свой ход в текущей фазе (для индикатора "ще обирає").
+  // В pick: кто submit'нул. В vote: кто проголосовал.
+  // Содержимое выбора не раскрывается до фазы vote/reveal.
+  doneInPhase: string[];
+  // В фазе reveal: разбивка голосов — кто за какой submission голосовал.
+  // Ключ = submissionId, значение = массив playerId которые за него.
+  voteBreakdown: Record<string, string[]>;
   myPickedSubmissionId: string | null;
   myVotedSubmissionId: string | null;
   roundWinner: { playerId: string; submissionId: string } | null;
@@ -265,6 +272,20 @@ function revealResult(state: LanGameState): LanGameState {
 export function viewForPlayer(state: LanGameState, myId: string): ClientView {
   const myHand = state.hands[myId] ?? [];
   const mySub = state.submissions.find((s) => s.playerId === myId);
+  let doneInPhase: string[] = [];
+  if (state.phase === 'pick') {
+    doneInPhase = state.submissions.map((s) => s.playerId);
+  } else if (state.phase === 'vote') {
+    doneInPhase = Object.keys(state.votes);
+  }
+  // voteBreakdown — только в reveal, когда все голоса раскрыты.
+  const voteBreakdown: Record<string, string[]> = {};
+  if (state.phase === 'reveal') {
+    for (const [voterId, submissionId] of Object.entries(state.votes)) {
+      if (!voteBreakdown[submissionId]) voteBreakdown[submissionId] = [];
+      voteBreakdown[submissionId].push(voterId);
+    }
+  }
   return {
     phase: state.phase,
     players: state.players,
@@ -275,6 +296,8 @@ export function viewForPlayer(state: LanGameState, myId: string): ClientView {
     situation: state.situation,
     myHand,
     submissions: state.phase === 'vote' || state.phase === 'reveal' ? state.submissions : [],
+    doneInPhase,
+    voteBreakdown,
     myPickedSubmissionId: mySub?.id ?? null,
     myVotedSubmissionId: state.votes[myId] ?? null,
     roundWinner: state.phase === 'reveal' ? state.roundWinner : null,
