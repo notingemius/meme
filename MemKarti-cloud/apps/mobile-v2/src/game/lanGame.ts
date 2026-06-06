@@ -29,11 +29,25 @@ export type Submission = {
   memeCard: MemeCard;
 };
 
+export type GameSettings = {
+  totalRounds: number;
+  pickSeconds: number;
+  voteSeconds: number;
+};
+
+export const DEFAULT_SETTINGS: GameSettings = {
+  totalRounds: 5,
+  pickSeconds: 30,
+  voteSeconds: 20,
+};
+
 export type LanGameState = {
   phase: Phase;
   players: Player[];
   round: number;
   totalRounds: number;
+  pickSeconds: number;
+  voteSeconds: number;
   situation: Situation | null;
   hands: Record<string, MemeCard[]>; // у каждого игрока всегда HAND_SIZE мемов
   submissions: Submission[];
@@ -48,6 +62,8 @@ export type ClientView = {
   players: Player[];
   round: number;
   totalRounds: number;
+  pickSeconds: number;
+  voteSeconds: number;
   situation: Situation | null;
   myHand: MemeCard[];
   submissions: Submission[];
@@ -57,7 +73,6 @@ export type ClientView = {
   myId: string;
 };
 
-const ROUNDS = 5;
 export const HAND_SIZE = 8;
 
 function shuffle<T>(arr: T[]): T[] {
@@ -89,18 +104,34 @@ function drawCards(state: LanGameState, count: number): { drawn: MemeCard[]; new
 // HOST API
 // ----------------------------------------------------------------------------
 
-export function createLobby(hostNickname: string): LanGameState {
+export function createLobby(
+  hostNickname: string,
+  settings: GameSettings = DEFAULT_SETTINGS,
+): LanGameState {
   return {
     phase: 'lobby',
     players: [{ id: 'host', nickname: hostNickname, score: 0 }],
     round: 0,
-    totalRounds: ROUNDS,
+    totalRounds: settings.totalRounds,
+    pickSeconds: settings.pickSeconds,
+    voteSeconds: settings.voteSeconds,
     situation: null,
     hands: {},
     submissions: [],
     votes: {},
     roundWinner: null,
     usedMemeIds: [],
+  };
+}
+
+// Обновить настройки игры (только в лобби; после старта игнорируется).
+export function updateSettings(state: LanGameState, settings: Partial<GameSettings>): LanGameState {
+  if (state.phase !== 'lobby') return state;
+  return {
+    ...state,
+    totalRounds: settings.totalRounds ?? state.totalRounds,
+    pickSeconds: settings.pickSeconds ?? state.pickSeconds,
+    voteSeconds: settings.voteSeconds ?? state.voteSeconds,
   };
 }
 
@@ -239,6 +270,8 @@ export function viewForPlayer(state: LanGameState, myId: string): ClientView {
     players: state.players,
     round: state.round,
     totalRounds: state.totalRounds,
+    pickSeconds: state.pickSeconds,
+    voteSeconds: state.voteSeconds,
     situation: state.situation,
     myHand,
     submissions: state.phase === 'vote' || state.phase === 'reveal' ? state.submissions : [],

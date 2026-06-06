@@ -12,9 +12,6 @@ import { DropIn, FadeIn } from './RevealAnimation';
 import { Avatar } from './Avatar';
 import { PhaseTimer } from './PhaseTimer';
 
-export const PICK_SECONDS = 30;
-export const VOTE_SECONDS = 20;
-
 type Props = {
   view: ClientView;
   insets: { top: number; bottom: number };
@@ -150,7 +147,7 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           {!view.myVotedSubmissionId && (
             <PhaseTimer
               resetKey={`vote-${view.round}`}
-              totalSec={VOTE_SECONDS}
+              totalSec={view.voteSeconds}
               label="на голосування"
             />
           )}
@@ -194,7 +191,7 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
         {!view.myPickedSubmissionId && (
           <PhaseTimer
             resetKey={`pick-${view.round}`}
-            totalSec={PICK_SECONDS}
+            totalSec={view.pickSeconds}
             label="на вибір мема"
           />
         )}

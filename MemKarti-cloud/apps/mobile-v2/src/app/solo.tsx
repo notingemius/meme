@@ -13,7 +13,7 @@ import {
 } from '@/game/lanGame';
 import { createSoloWithBots, botsSubmit, botsVote } from '@/game/soloBots';
 import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
-import { LanGameUI, PICK_SECONDS, VOTE_SECONDS } from '@/components/LanGameUI';
+import { LanGameUI } from '@/components/LanGameUI';
 
 export default function SoloScreen() {
   const insets = useSafeAreaInsets();
@@ -48,9 +48,9 @@ export default function SoloScreen() {
     if (myDone) return;
     const t = setTimeout(() => {
       setState((s) => autoPickHumans(s));
-    }, PICK_SECONDS * 1000);
+    }, state.pickSeconds * 1000);
     return () => clearTimeout(t);
-  }, [state.phase, state.submissions, state.round]);
+  }, [state.phase, state.submissions, state.round, state.pickSeconds]);
 
   // Таймер vote-фазы.
   useEffect(() => {
@@ -59,9 +59,9 @@ export default function SoloScreen() {
     if (myVoted) return;
     const t = setTimeout(() => {
       setState((s) => autoVoteHumans(s));
-    }, VOTE_SECONDS * 1000);
+    }, state.voteSeconds * 1000);
     return () => clearTimeout(t);
-  }, [state.phase, state.votes, state.round]);
+  }, [state.phase, state.votes, state.round, state.voteSeconds]);
 
   const handleSubmit = useCallback((memeCardId: number) => {
     setState((s) => submitPick(s, 'host', memeCardId));

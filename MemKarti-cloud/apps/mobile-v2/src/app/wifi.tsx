@@ -19,6 +19,7 @@ import {
   startRound,
   submitPick,
   castVote,
+  updateSettings,
   viewForPlayer,
   type LanGameState,
   type ClientView,
@@ -27,8 +28,9 @@ import {
 } from '@/game/lanGame';
 import { botsSubmit, botsVote } from '@/game/soloBots';
 import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
-import { LanGameUI, PICK_SECONDS, VOTE_SECONDS } from '@/components/LanGameUI';
+import { LanGameUI } from '@/components/LanGameUI';
 import { Avatar } from '@/components/Avatar';
+import { SettingsChips } from '@/components/SettingsChips';
 
 const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Петро', 'Софія', 'Назар'];
 
@@ -230,6 +232,11 @@ function HostFlow({
     updateState(addPlayer(stateRef.current, id, free));
   };
 
+  // Изменение настроек в лобби.
+  const onChangeRounds = (n: number) => updateState(updateSettings(stateRef.current, { totalRounds: n }));
+  const onChangePickSec = (n: number) => updateState(updateSettings(stateRef.current, { pickSeconds: n }));
+  const onChangeVoteSec = (n: number) => updateState(updateSettings(stateRef.current, { voteSeconds: n }));
+
   // Боты автоматически submit'ят в фазе pick (после некоторой задержки).
   useEffect(() => {
     if (state.phase !== 'pick') return;
@@ -265,9 +272,9 @@ function HostFlow({
     if (allHumansPicked) return;
     const t = setTimeout(() => {
       updateState(autoPickHumans(stateRef.current));
-    }, PICK_SECONDS * 1000);
+    }, state.pickSeconds * 1000);
     return () => clearTimeout(t);
-  }, [state.phase, state.submissions, state.round]);
+  }, [state.phase, state.submissions, state.round, state.pickSeconds]);
 
   // Таймер vote: автоголос для лагающих людей.
   useEffect(() => {
@@ -278,9 +285,9 @@ function HostFlow({
     if (allHumansVoted) return;
     const t = setTimeout(() => {
       updateState(autoVoteHumans(stateRef.current));
-    }, VOTE_SECONDS * 1000);
+    }, state.voteSeconds * 1000);
     return () => clearTimeout(t);
-  }, [state.phase, state.votes, state.round]);
+  }, [state.phase, state.votes, state.round, state.voteSeconds]);
 
   if (err) {
     return (
@@ -306,6 +313,42 @@ function HostFlow({
             <Text style={styles.ipLabel}>ТВІЙ IP (інші можуть знайти через «Знайти»)</Text>
             <Text style={styles.ipValue}>{ip ?? 'Завантаження…'}</Text>
           </View>
+          <Text style={styles.sectionLabel}>НАЛАШТУВАННЯ ГРИ</Text>
+          <SettingsChips
+            label="Раунди"
+            emoji="🎯"
+            value={state.totalRounds}
+            options={[
+              { value: 3, label: '3' },
+              { value: 5, label: '5' },
+              { value: 7, label: '7' },
+              { value: 10, label: '10' },
+            ]}
+            onChange={onChangeRounds}
+          />
+          <SettingsChips
+            label="Час на вибір мема"
+            emoji="⏱️"
+            value={state.pickSeconds}
+            options={[
+              { value: 15, label: '15с' },
+              { value: 30, label: '30с' },
+              { value: 60, label: '60с' },
+            ]}
+            onChange={onChangePickSec}
+          />
+          <SettingsChips
+            label="Час на голос"
+            emoji="🗳️"
+            value={state.voteSeconds}
+            options={[
+              { value: 10, label: '10с' },
+              { value: 20, label: '20с' },
+              { value: 45, label: '45с' },
+            ]}
+            onChange={onChangeVoteSec}
+          />
+
           <Text style={styles.sectionLabel}>ГРАВЦІ ({state.players.length})</Text>
           {state.players.map((p) => (
             <View key={p.id} style={styles.playerRow}>
