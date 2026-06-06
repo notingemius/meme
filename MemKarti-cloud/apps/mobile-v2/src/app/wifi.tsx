@@ -25,7 +25,11 @@ import {
   type ClientMsg,
   type ServerMsg,
 } from '@/game/lanGame';
+import { botsSubmit, botsVote } from '@/game/soloBots';
 import { LanGameUI } from '@/components/LanGameUI';
+import { Avatar } from '@/components/Avatar';
+
+const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Петро', 'Софія', 'Назар'];
 
 type Mode = 'menu' | 'host' | 'join';
 
@@ -198,6 +202,58 @@ function HostFlow({
   const onStartRound = () => {
     updateState(startRound(stateRef.current));
   };
+  // Реванш: сбрасываем игру до лобби с теми же игроками + 0 очков.
+  const onRematch = () => {
+    const fresh = createLobby(nickname);
+    let s = fresh;
+    for (const [peerId, _peer] of peersRef.current.entries()) {
+      const oldPlayer = stateRef.current.players.find((p) => p.id === peerId);
+      if (oldPlayer) {
+        s = addPlayer(s, peerId, oldPlayer.nickname);
+      }
+    }
+    // Возвращаем ботов (они не peer'ы)
+    for (const p of stateRef.current.players) {
+      if (p.id.startsWith('bot') && !s.players.some((x) => x.id === p.id)) {
+        s = addPlayer(s, p.id, p.nickname);
+      }
+    }
+    updateState(s);
+  };
+
+  // Добавить бота в лобби.
+  const onAddBot = () => {
+    const usedNames = new Set(stateRef.current.players.map((p) => p.nickname));
+    const free = BOT_NAMES.find((n) => !usedNames.has(n)) ?? `Бот${stateRef.current.players.length}`;
+    const id = `bot${Date.now()}`;
+    updateState(addPlayer(stateRef.current, id, free));
+  };
+
+  // Боты автоматически submit'ят в фазе pick (после некоторой задержки).
+  useEffect(() => {
+    if (state.phase !== 'pick') return;
+    const hasBots = state.players.some((p) => p.id.startsWith('bot'));
+    if (!hasBots) return;
+    const allBotsPicked = state.players
+      .filter((p) => p.id.startsWith('bot'))
+      .every((p) => state.submissions.some((s) => s.playerId === p.id));
+    if (allBotsPicked) return;
+    const t = setTimeout(() => updateState(botsSubmit(stateRef.current)), 1500);
+    return () => clearTimeout(t);
+  }, [state.phase, state.submissions]);
+
+  // Боты автоматически голосуют в фазе vote.
+  useEffect(() => {
+    if (state.phase !== 'vote') return;
+    const hasBots = state.players.some((p) => p.id.startsWith('bot'));
+    if (!hasBots) return;
+    const allBotsVoted = state.players
+      .filter((p) => p.id.startsWith('bot'))
+      .every((p) => state.votes[p.id]);
+    if (allBotsVoted) return;
+    const t = setTimeout(() => updateState(botsVote(stateRef.current)), 2000);
+    return () => clearTimeout(t);
+  }, [state.phase, state.votes]);
 
   if (err) {
     return (
@@ -226,20 +282,35 @@ function HostFlow({
           <Text style={styles.sectionLabel}>ГРАВЦІ ({state.players.length})</Text>
           {state.players.map((p) => (
             <View key={p.id} style={styles.playerRow}>
-              <Text style={styles.playerName}>{p.nickname}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Avatar id={p.id} nickname={p.nickname} size={32} />
+                <Text style={[styles.playerName, { marginLeft: 10 }]}>
+                  {p.id.startsWith('bot') ? '🤖 ' : ''}{p.nickname}
+                </Text>
+              </View>
               {p.id === 'host' && <Text style={styles.youBadge}>ТИ (хост)</Text>}
+              {p.id.startsWith('bot') && <Text style={styles.botBadge}>БОТ</Text>}
             </View>
           ))}
+
+          <TouchableOpacity
+            onPress={onAddBot}
+            disabled={state.players.length >= 8}
+            style={[styles.btnGhost, { marginTop: 8, opacity: state.players.length >= 8 ? 0.5 : 1 }]}
+          >
+            <Text style={styles.btnGhostText}>+ Додати бота</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={onStartRound}
             disabled={state.players.length < 2}
             style={[
               styles.btnPrimary,
-              { marginTop: 24, opacity: state.players.length < 2 ? 0.5 : 1 },
+              { marginTop: 16, opacity: state.players.length < 2 ? 0.5 : 1 },
             ]}
           >
             <Text style={styles.btnPrimaryText}>
-              {state.players.length < 2 ? 'Чекаємо ще гравця…' : 'Почати гру'}
+              {state.players.length < 2 ? 'Чекаємо ще гравця (або додай бота)…' : 'Почати гру'}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -257,6 +328,7 @@ function HostFlow({
       onVote={onHostVote}
       onNextRound={onStartRound}
       onExit={onExit}
+      onRematch={onRematch}
     />
   );
 }
@@ -475,8 +547,12 @@ function JoinFlow({
           <Text style={styles.sectionLabel}>ГРАВЦІ ({view.players.length})</Text>
           {view.players.map((p) => (
             <View key={p.id} style={styles.playerRow}>
-              <Text style={styles.playerName}>{p.nickname}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Avatar id={p.id} nickname={p.nickname} size={32} />
+                <Text style={[styles.playerName, { marginLeft: 10 }]}>{p.nickname}</Text>
+              </View>
               {p.id === view.myId && <Text style={styles.youBadge}>ТИ</Text>}
+              {p.id.startsWith('bot') && <Text style={styles.botBadge}>БОТ</Text>}
             </View>
           ))}
         </ScrollView>
@@ -527,6 +603,9 @@ const styles = StyleSheet.create({
   },
   playerName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   youBadge: { fontSize: 11, fontWeight: '600', color: '#2563EB', letterSpacing: 0.5 },
+  botBadge: { fontSize: 11, fontWeight: '600', color: '#92400E', letterSpacing: 0.5, backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  btnGhost: { backgroundColor: 'transparent', borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: '#2563EB', borderStyle: 'dashed' },
+  btnGhostText: { fontSize: 14, color: '#2563EB', fontWeight: '600' },
 
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' },
 

@@ -1,249 +1,79 @@
-import { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-} from 'react-native';
+// Соло-режим: ты + 3 бота, полный игровой цикл с голосованием.
+// Использует тот же движок (lanGame) и UI (LanGameUI) что и LAN multiplayer.
+import { useState, useCallback, useEffect } from 'react';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
-  createSoloGame,
-  pickCard,
-  nextRound,
-  type SoloGameState,
-} from '@/game/soloEngine';
-import { HandPicker } from '@/components/HandPicker';
-import { DropIn, FadeIn } from '@/components/RevealAnimation';
+  startRound,
+  submitPick,
+  castVote,
+  viewForPlayer,
+  type LanGameState,
+} from '@/game/lanGame';
+import { createSoloWithBots, botsSubmit, botsVote } from '@/game/soloBots';
+import { LanGameUI } from '@/components/LanGameUI';
 
 export default function SoloScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ nickname?: string }>();
-  const nickname = params.nickname || 'Гравець';
+  const nickname = (params.nickname || 'Гравець').toString();
 
-  const [game, setGame] = useState<SoloGameState>(() => createSoloGame());
+  const [state, setState] = useState<LanGameState>(() => createSoloWithBots(nickname, 3));
 
-  const round = game.rounds[game.currentRoundIndex];
-  const isShowingResult = !!round?.picked;
+  // После выбора игрока — боты делают свой выбор (с небольшой задержкой для драматизма).
+  useEffect(() => {
+    if (state.phase !== 'pick') return;
+    const myDone = state.submissions.some((s) => s.playerId === 'host');
+    if (!myDone) return;
+    const t = setTimeout(() => setState((s) => botsSubmit(s)), 800);
+    return () => clearTimeout(t);
+  }, [state.phase, state.submissions]);
 
-  const handlePick = useCallback((memeId: number) => {
-    setGame((s) => pickCard(s, memeId));
+  // После голоса игрока — боты тоже голосуют.
+  useEffect(() => {
+    if (state.phase !== 'vote') return;
+    const myVoted = !!state.votes['host'];
+    if (!myVoted) return;
+    const t = setTimeout(() => setState((s) => botsVote(s)), 1200);
+    return () => clearTimeout(t);
+  }, [state.phase, state.votes]);
+
+  const handleSubmit = useCallback((memeCardId: number) => {
+    setState((s) => submitPick(s, 'host', memeCardId));
   }, []);
 
-  const handleNext = useCallback(() => {
-    setGame((s) => nextRound(s));
+  const handleVote = useCallback((submissionId: string) => {
+    setState((s) => castVote(s, 'host', submissionId));
   }, []);
 
-  const handleNewGame = useCallback(() => {
-    setGame(createSoloGame());
+  const handleNextRound = useCallback(() => {
+    setState((s) => startRound(s));
   }, []);
 
-  // === ИТОГ ===
-  if (game.isFinished) {
-    const max = game.rounds.length * 3;
-    const pct = max > 0 ? (game.totalScore / max) * 100 : 0;
-    const verdict =
-      pct >= 80
-        ? 'Король мемів! 👑'
-        : pct >= 60
-        ? 'Майстер сарказму 🔥'
-        : pct >= 40
-        ? 'Норм, треба тренуватись 😎'
-        : 'Ще трохи практики 💪';
+  const handleExit = useCallback(() => {
+    router.back();
+  }, [router]);
 
-    return (
-      <View style={[styles.container, { paddingTop: insets.top + 24 }]}>
-        <ScrollView contentContainerStyle={{ padding: 20 }}>
-          <Text style={styles.title}>Гру завершено</Text>
-          <Text style={styles.subtitle}>{nickname}</Text>
+  const handleRematch = useCallback(() => {
+    setState(createSoloWithBots(nickname, 3));
+  }, [nickname]);
 
-          <View style={styles.scoreCard}>
-            <Text style={styles.scoreLabel}>Очки</Text>
-            <Text style={styles.scoreValue}>
-              {game.totalScore} / {max}
-            </Text>
-            <Text style={styles.verdict}>{verdict}</Text>
-          </View>
+  const view = viewForPlayer(state, 'host');
 
-          <View style={{ marginTop: 24 }}>
-            <Text style={styles.sectionLabel}>ТВОЇ ВИБОРИ</Text>
-            {game.rounds.map((r, i) => (
-              <View key={i} style={styles.historyItem}>
-                <Text style={styles.historySituation} numberOfLines={2}>
-                  {i + 1}. {r.situation.text_ua}
-                </Text>
-                {r.picked && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                    <Image source={{ uri: r.picked.image_url }} style={styles.historyImage} />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.historyMemeTitle}>{r.picked.title}</Text>
-                      <Text style={styles.historyScore}>+{r.score} очок</Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            ))}
-          </View>
-
-          <TouchableOpacity onPress={handleNewGame} style={[styles.btnPrimary, { marginTop: 24 }]}>
-            <Text style={styles.btnPrimaryText}>Ще раз</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[styles.btnSecondary, { marginTop: 12 }]}
-          >
-            <Text style={styles.btnSecondaryText}>На головну</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // === ИГРОВОЙ РАУНД ===
-  if (!isShowingResult) {
-    // Layout: header + situation сверху (scroll), HandPicker отдельно снизу.
-    return (
-      <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Text style={styles.backBtnText}>← Вийти</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerInfo}>
-              Раунд {game.currentRoundIndex + 1} / {game.rounds.length}
-            </Text>
-            <Text style={styles.headerInfo}>★ {game.totalScore}</Text>
-          </View>
-
-          <View style={styles.situationCard}>
-            <Text style={styles.situationLabel}>СИТУАЦІЯ</Text>
-            <Text style={styles.situationText}>{round.situation.text_ua}</Text>
-          </View>
-
-          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 4 }]}>
-            ОБЕРИ МЕМ · РУКА {game.hand.length} КАРТ
-          </Text>
-        </ScrollView>
-
-        <View style={{ marginBottom: insets.bottom + 8 }}>
-          <HandPicker
-            hand={game.hand}
-            onPick={handlePick}
-            disabled={false}
-          />
-        </View>
-      </View>
-    );
-  }
-
-  // === Результат раунда ===
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Вийти</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerInfo}>
-            Раунд {game.currentRoundIndex + 1} / {game.rounds.length}
-          </Text>
-          <Text style={styles.headerInfo}>★ {game.totalScore}</Text>
-        </View>
-
-        <View style={styles.situationCard}>
-          <Text style={styles.situationLabel}>СИТУАЦІЯ</Text>
-          <Text style={styles.situationText}>{round.situation.text_ua}</Text>
-        </View>
-
-        <View style={styles.resultBlock}>
-          <Text style={styles.resultLabel}>ТВІЙ ВИБІР</Text>
-          <DropIn>
-            <View style={styles.memeCardPicked}>
-              <Image source={{ uri: round.picked!.image_url }} style={styles.memeImageBig} />
-              <Text style={styles.memeTitlePicked}>{round.picked!.title}</Text>
-            </View>
-          </DropIn>
-          <FadeIn delay={700}>
-            <View style={styles.scoreBadge}>
-              <Text style={styles.scoreBadgeText}>+{round.score} очок</Text>
-              <Text style={styles.scoreBadgeNote}>
-                {round.score === 3
-                  ? '🔥 Огонь!'
-                  : round.score === 2
-                  ? '😄 Норм'
-                  : round.score === 1
-                  ? '🙂 Так собі'
-                  : '😐 Не зайшло'}
-              </Text>
-            </View>
-          </FadeIn>
-          {/* Задержка: кнопка появляется через ~1с чтобы не было случайных тапов */}
-          <FadeIn delay={1200}>
-            <TouchableOpacity onPress={handleNext} style={styles.btnPrimary}>
-              <Text style={styles.btnPrimaryText}>
-                {game.currentRoundIndex + 1 >= game.rounds.length
-                  ? 'Подивитись результат'
-                  : 'Наступний раунд →'}
-              </Text>
-            </TouchableOpacity>
-          </FadeIn>
-        </View>
-      </ScrollView>
+    <View style={{ flex: 1 }}>
+      <LanGameUI
+        view={view}
+        insets={insets}
+        isHost={true}
+        onSubmit={handleSubmit}
+        onVote={handleVote}
+        onNextRound={handleNextRound}
+        onExit={handleExit}
+        onRematch={handleRematch}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  backBtn: { paddingVertical: 6, paddingHorizontal: 8 },
-  backBtnText: { color: '#2563EB', fontSize: 14, fontWeight: '600' },
-  headerInfo: { color: '#6B7280', fontSize: 13, fontWeight: '500' },
-
-  situationCard: { backgroundColor: '#2563EB', borderRadius: 16, padding: 20, marginBottom: 16 },
-  situationLabel: { color: '#BFDBFE', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 8 },
-  situationText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600', lineHeight: 24 },
-
-  sectionLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginTop: 6 },
-
-  resultBlock: { alignItems: 'stretch' },
-  resultLabel: { color: '#6B7280', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 12 },
-  memeCardPicked: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 2, borderColor: '#2563EB',
-    overflow: 'hidden', marginBottom: 16,
-  },
-  memeImageBig: { width: '100%', height: 280, backgroundColor: '#F3F4F6' },
-  memeTitlePicked: { fontSize: 15, color: '#111827', padding: 14, fontWeight: '600' },
-
-  scoreBadge: {
-    backgroundColor: '#FEF3C7', borderRadius: 12, padding: 16,
-    alignItems: 'center', marginBottom: 16,
-  },
-  scoreBadgeText: { fontSize: 28, color: '#92400E', fontWeight: '700' },
-  scoreBadgeNote: { fontSize: 15, color: '#78350F', marginTop: 4 },
-
-  btnPrimary: { backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
-  btnPrimaryText: { fontSize: 15, color: '#FFFFFF', fontWeight: '600' },
-  btnSecondary: { backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
-  btnSecondaryText: { fontSize: 15, color: '#2563EB', fontWeight: '600' },
-
-  title: { fontSize: 32, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#6B7280', marginTop: 4 },
-  scoreCard: { backgroundColor: '#2563EB', borderRadius: 20, padding: 24, marginTop: 24, alignItems: 'center' },
-  scoreLabel: { color: '#BFDBFE', fontSize: 12, fontWeight: '600', letterSpacing: 1 },
-  scoreValue: { color: '#FFFFFF', fontSize: 56, fontWeight: '700', marginVertical: 8 },
-  verdict: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-
-  historyItem: {
-    backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  historySituation: { fontSize: 13, color: '#374151', fontWeight: '500' },
-  historyImage: { width: 60, height: 60, borderRadius: 6, backgroundColor: '#F3F4F6' },
-  historyMemeTitle: { fontSize: 13, color: '#111827', fontWeight: '600' },
-  historyScore: { fontSize: 12, color: '#2563EB', fontWeight: '600', marginTop: 2 },
-});

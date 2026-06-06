@@ -59,7 +59,7 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.heroBlock}>
-            <Text style={styles.heroTitle}>Memocards</Text>
+            <Text style={styles.heroTitle}>МемКарти 🃏</Text>
             <Text style={styles.heroSubtitle}>
               Картки з ситуаціями та найсмішніші меми. Збирай друзів і дізнайся,
               у кого найкраще почуття гумору.

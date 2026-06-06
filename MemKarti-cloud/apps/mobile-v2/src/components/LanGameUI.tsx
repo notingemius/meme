@@ -9,6 +9,7 @@ import {
 import type { ClientView } from '@/game/lanGame';
 import { HandPicker } from './HandPicker';
 import { DropIn, FadeIn } from './RevealAnimation';
+import { Avatar } from './Avatar';
 
 type Props = {
   view: ClientView;
@@ -18,9 +19,10 @@ type Props = {
   onVote: (submissionId: string) => void;
   onNextRound: () => void;
   onExit: () => void;
+  onRematch?: () => void; // только для хоста / соло
 };
 
-export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound, onExit }: Props) {
+export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound, onExit, onRematch }: Props) {
   // ============= FINISHED =============
   if (view.phase === 'finished') {
     const sorted = [...view.players].sort((a, b) => b.score - a.score);
@@ -34,15 +36,32 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           </Text>
           <View style={styles.podium}>
             {sorted.map((p, i) => (
-              <View key={p.id} style={styles.podiumRow}>
-                <Text style={styles.podiumPlace}>{i + 1}.</Text>
+              <View key={p.id} style={[styles.podiumRow, i === 0 && styles.podiumRowWinner]}>
+                <Text style={[styles.podiumPlace, i === 0 && { color: '#92400E' }]}>
+                  {i === 0 ? '👑' : `${i + 1}.`}
+                </Text>
+                <View style={{ marginRight: 10 }}>
+                  <Avatar id={p.id} nickname={p.nickname} size={36} border={i === 0} />
+                </View>
                 <Text style={styles.podiumName}>{p.nickname}</Text>
-                <Text style={styles.podiumScore}>{p.score} оч.</Text>
+                <Text style={[styles.podiumScore, i === 0 && { color: '#92400E' }]}>
+                  {p.score} оч.
+                </Text>
               </View>
             ))}
           </View>
-          <TouchableOpacity onPress={onExit} style={[styles.btnPrimary, { marginTop: 24 }]}>
-            <Text style={styles.btnPrimaryText}>На головну</Text>
+          {isHost && onRematch && (
+            <TouchableOpacity onPress={onRematch} style={[styles.btnPrimary, { marginTop: 24 }]}>
+              <Text style={styles.btnPrimaryText}>🔄 Реванш — ще раз</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={onExit}
+            style={[isHost && onRematch ? styles.btnSecondary : styles.btnPrimary, { marginTop: 12 }]}
+          >
+            <Text style={isHost && onRematch ? styles.btnSecondaryText : styles.btnPrimaryText}>
+              На головну
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -93,10 +112,13 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           <Text style={[styles.label, { marginTop: 24 }]}>РАХУНОК</Text>
           {view.players.map((p) => (
             <View key={p.id} style={styles.scoreRow}>
-              <Text style={styles.scoreName}>
-                {p.nickname}
-                {p.id === view.myId ? ' (ти)' : ''}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <Avatar id={p.id} nickname={p.nickname} size={32} />
+                <Text style={[styles.scoreName, { marginLeft: 10 }]}>
+                  {p.nickname}
+                  {p.id === view.myId ? ' (ти)' : ''}
+                </Text>
+              </View>
               <Text style={styles.scoreVal}>★ {p.score}</Text>
             </View>
           ))}
@@ -231,6 +253,8 @@ const styles = StyleSheet.create({
 
   btnPrimary: { backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
   btnPrimaryText: { fontSize: 15, color: '#FFFFFF', fontWeight: '600' },
+  btnSecondary: { backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
+  btnSecondaryText: { fontSize: 15, color: '#2563EB', fontWeight: '600' },
 
   bigTitle: { fontSize: 32, fontWeight: '700', color: '#111827' },
   sub: { fontSize: 16, color: '#6B7280', marginTop: 8 },
@@ -238,6 +262,9 @@ const styles = StyleSheet.create({
   podiumRow: {
     flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: '#FFFFFF',
     borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 8,
+  },
+  podiumRowWinner: {
+    backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 2,
   },
   podiumPlace: { fontSize: 20, fontWeight: '700', color: '#2563EB', width: 40 },
   podiumName: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
