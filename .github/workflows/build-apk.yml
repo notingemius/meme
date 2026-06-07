@@ -1,0 +1,151 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - feature/expand-memes-and-preview
+      - apk-release
+      - main
+    paths:
+      - 'MemKarti-cloud/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+    inputs:
+      upload_to_release:
+        description: 'Publish APK to GitHub Release (apk-release tag)'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    defaults:
+      run:
+        working-directory: MemKarti-cloud
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack + Yarn 4.12.0
+        run: |
+          corepack enable
+          corepack prepare yarn@4.12.0 --activate
+          yarn --version
+
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK (cmdline-tools only)
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.1.12297006" \
+            "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.1.12297006" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.1.12297006" >> "$GITHUB_ENV"
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            MemKarti-cloud/.yarn/cache
+            MemKarti-cloud/.yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('MemKarti-cloud/yarn.lock') }}
+          restore-keys: |
+            yarn-${{ runner.os }}-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('MemKarti-cloud/apps/mobile/package.json') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install dependencies (yarn install)
+        env:
+          YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+        run: yarn install
+
+      - name: Expo prebuild (generate android/)
+        working-directory: MemKarti-cloud/apps/mobile
+        env:
+          EXPO_NO_TELEMETRY: '1'
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Configure Gradle JVM args
+        working-directory: MemKarti-cloud/apps/mobile/android
+        run: |
+          {
+            echo ""
+            echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError"
+            echo "org.gradle.daemon=false"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.caching=true"
+          } >> gradle.properties
+
+      - name: Build release APK (arm64-v8a)
+        working-directory: MemKarti-cloud/apps/mobile/android
+        env:
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+          SENTRY_ALLOW_FAILURE: 'true'
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a \
+            --no-daemon \
+            --stacktrace
+
+      - name: Find APK output
+        id: find_apk
+        working-directory: MemKarti-cloud/apps/mobile/android
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n1)
+          echo "Found APK: $APK_PATH"
+          ls -lh "$APK_PATH"
+          echo "apk_path=MemKarti-cloud/apps/mobile/android/$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "apk_name=MemKarti-$(date +%Y%m%d-%H%M)-${GITHUB_SHA::7}.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.find_apk.outputs.apk_name }}
+          path: ${{ steps.find_apk.outputs.apk_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish to GitHub Release (optional)
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: 'Build #${{ github.run_number }} (${{ github.ref_name }})'
+          files: ${{ steps.find_apk.outputs.apk_path }}
+          generate_release_notes: true
+          prerelease: true

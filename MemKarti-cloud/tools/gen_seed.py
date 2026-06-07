@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Єдине джерело правди для контенту гри МемКарти.
+
+Генерує ОДНОЧАСНО:
+  1) apps/mobile/src/game/engine/deck.ts  — вбудована колода для ОФЛАЙН-гри
+  2) apps/web/db/seed.sql                 — сид для ОНЛАЙН-гри (PostgreSQL/Neon)
+  3) CARDS_PREVIEW.md                     — галерея для візуальної перевірки на GitHub
+
+Запуск:
+  python3 tools/gen_seed.py
+
+Картинки мемів — публічні шаблони з imgflip (i.imgflip.com). Усі URL валідні (HTTP 200).
+"""
+
+import json
+import os
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# ---------------------------------------------------------------------------
+# СИТУАЦІЇ  (text_ua, text_ru)
+# ---------------------------------------------------------------------------
+SITUATIONS = [
+    ("Коли о третій ночі ти відкриваєш холодильник у п'ятий раз...", "Когда в три ночи ты открываешь холодильник в пятый раз..."),
+    ("Мій настрій в понеділок о 9 ранку", "Моё настроение в понедельник в 9 утра"),
+    ("Реакція, коли приходить зарплата і відразу зникає", "Реакция, когда приходит зарплата и сразу исчезает"),
+    ("Я, коли кажу 'ще одне відео і спати'", "Я, когда говорю 'ещё одно видео и спать'"),
+    ("Коли вчитель каже 'це буде на іспиті'", "Когда учитель говорит 'это будет на экзамене'"),
+    ("Мої плани на вихідні vs реальність", "Мои планы на выходные vs реальность"),
+    ("Коли написав 'вже йду' але ще навіть не вдягнувся", "Когда написал 'уже иду', но ещё даже не оделся"),
+    ("Моя банківська карта після 'маленької покупки'", "Моя карта после 'маленькой покупки'"),
+    ("Коли всі хворі, а ти єдиний на роботі", "Когда все болеют, а ты один на работе"),
+    ("Реакція кота о 6 ранку на порожню миску", "Реакция кота в 6 утра на пустую миску"),
+    ("Коли прийшов на вечірку, а там тільки їжа", "Когда пришёл на вечеринку, а там только еда"),
+    ("Я пояснюю мем, який ніхто не зрозумів", "Я объясняю мем, который никто не понял"),
+    ("Коли твій інтернет вирубався під час важливої зустрічі", "Когда интернет вырубился во время важной встречи"),
+    ("Моє обличчя, коли бачу рахунок у ресторані", "Моё лицо, когда вижу счёт в ресторане"),
+    ("Коли намагаєшся виглядати зайнятим перед начальником", "Когда пытаешься выглядеть занятым перед начальником"),
+    ("Коли знайшов гроші в старій куртці", "Когда нашёл деньги в старой куртке"),
+    ("Моя сила волі перед тортом", "Моя сила воли перед тортом"),
+    ("Коли друг каже 'довірся мені'", "Когда друг говорит 'доверься мне'"),
+    ("Я після того як сказав 'я на дієті'", "Я после того как сказал 'я на диете'"),
+    ("Коли відкрив 47 вкладок і не знаєш яка з них грає музику", "Когда открыл 47 вкладок и не знаешь какая играет музыку"),
+    ("Моє 'ще 5 хвилин' о 7 ранку", "Моё 'ещё 5 минут' в 7 утра"),
+    ("Коли тебе додали в робочий чат о 23:00", "Когда тебя добавили в рабочий чат в 23:00"),
+    ("Моя реакція на 'нам треба поговорити'", "Моя реакция на 'нам надо поговорить'"),
+    ("Коли вимкнув будильник і 'тільки очі закрию'", "Когда выключил будильник и 'только глаза закрою'"),
+    ("Коли намагаєшся зрозуміти жарт через 5 секунд", "Когда пытаешься понять шутку через 5 секунд"),
+    ("Мій мозок о 3 ночі, коли треба спати", "Мой мозг в 3 ночи, когда надо спать"),
+    ("Коли обіцяв собі лягти рано", "Когда обещал себе лечь рано"),
+    ("Моє резюме vs мої реальні навички", "Моё резюме vs мои реальные навыки"),
+    ("Коли кажуть 'буде весело' — і це не весело", "Когда говорят 'будет весело' — и это не весело"),
+    ("Коли намагаєшся бути дорослим і відповідальним", "Когда пытаешься быть взрослым и ответственным"),
+    ("Моя продуктивність за день до дедлайну", "Моя продуктивность за день до дедлайна"),
+    ("Коли хтось каже 'ти ж програміст, почини принтер'", "Когда кто-то говорит 'ты же программист, почини принтер'"),
+    ("Коли замовив салат, а друзі — піцу", "Когда заказал салат, а друзья — пиццу"),
+    ("Моє обличчя на фото в паспорті", "Моё лицо на фото в паспорте"),
+    ("Коли вирішив 'з понеділка нове життя'", "Когда решил 'с понедельника новая жизнь'"),
+    ("Коли бачиш, що хтось пише і раптом перестає", "Когда видишь, что кто-то пишет и вдруг перестаёт"),
+    ("Мій абонемент у спортзал, який я відвідав двічі", "Мой абонемент в спортзал, который я посетил дважды"),
+    ("Коли офіціант питає 'все смачно?' з повним ротом", "Когда официант спрашивает 'всё вкусно?' с полным ртом"),
+    ("Коли твій план 'буду продуктивним' зустрів диван", "Когда план 'буду продуктивным' встретил диван"),
+    # --- нові ситуації ---
+    ("Коли кажеш 'я не голодний' і доїдаєш чужу тарілку", "Когда говоришь 'я не голоден' и доедаешь чужую тарелку"),
+    ("Я о 2 ночі гуглю симптоми звичайної застуди", "Я в 2 ночи гуглю симптомы обычной простуды"),
+    ("Коли поклав щось 'на надійне місце' і забув куди", "Когда положил что-то 'в надёжное место' и забыл куда"),
+    ("Моя мотивація після першої чашки кави", "Моя мотивация после первой чашки кофе"),
+    ("Коли всі мовчать, а в тебе бурчить живіт", "Когда все молчат, а у тебя урчит живот"),
+    ("Я вдаю, що слухаю, а сам думаю про обід", "Я делаю вид, что слушаю, а сам думаю про обед"),
+    ("Коли натиснув 'відповісти всім' замість 'відповісти'", "Когда нажал 'ответить всем' вместо 'ответить'"),
+    ("Моє обличчя, коли хтось псує кінцівку фільму", "Моё лицо, когда кто-то спойлерит концовку фильма"),
+    ("Коли зарядка телефона 1%, а ти далеко від розетки", "Когда зарядка телефона 1%, а ты далеко от розетки"),
+    ("Я після того як пообіцяв 'буду пити більше води'", "Я после того как пообещал 'буду пить больше воды'"),
+    ("Коли друзі обирають куди піти їсти вже годину", "Когда друзья выбирают куда пойти есть уже час"),
+    ("Моя поведінка в магазині з порожнім шлунком", "Моё поведение в магазине на голодный желудок"),
+    ("Коли побачив себе у відеодзвінку і злякався", "Когда увидел себя в видеозвонке и испугался"),
+    ("Я, коли треба прокинутись рано у вихідний без причини", "Я, когда нужно проснуться рано в выходной без причины"),
+    ("Коли хтось каже 'це легко, просто зроби'", "Когда кто-то говорит 'это легко, просто сделай'"),
+    ("Моя сила волі біля холодильника опівночі", "Моя сила воли у холодильника в полночь"),
+    ("Коли вдаєш, що зрозумів інструкцію, але ні", "Когда делаешь вид, что понял инструкцию, но нет"),
+    ("Я після 'ще одна серія і точно спати' о 3 ночі", "Я после 'ещё одна серия и точно спать' в 3 ночи"),
+    ("Коли в чаті всі активні, крім того хто мав відповісти", "Когда в чате все активны, кроме того кто должен ответить"),
+    ("Моя реакція на слово 'терміново' в листі від боса", "Моя реакция на слово 'срочно' в письме от босса"),
+    ("Коли намагаєшся тихо відкрити чіпси на парі", "Когда пытаешься тихо открыть чипсы на паре"),
+    ("Я, коли касир питає 'пакет потрібен?'", "Я, когда кассир спрашивает 'пакет нужен?'"),
+    ("Коли поставив таймер на 10 хвилин, а проспав годину", "Когда поставил таймер на 10 минут, а проспал час"),
+    ("Моє ставлення до понеділка vs до п'ятниці", "Моё отношение к понедельнику vs к пятнице"),
+    ("Коли кажеш 'останній келих' уже втретє", "Когда говоришь 'последний бокал' уже в третий раз"),
+    ("Я, коли треба представитись перед групою", "Я, когда нужно представиться перед группой"),
+    ("Коли пилосос налякав кота, а потім тебе", "Когда пылесос напугал кота, а потом тебя"),
+    ("Моя продуктивність коли ніхто не дивиться", "Моя продуктивность когда никто не смотрит"),
+    ("Коли хтось їсть голосно поруч у тиші", "Когда кто-то ест громко рядом в тишине"),
+    ("Я після того як сказав 'довірся, я знаю дорогу'", "Я после того как сказал 'доверься, я знаю дорогу'"),
+    ("Коли пишеш повідомлення, видаляєш і пишеш знову", "Когда пишешь сообщение, удаляешь и пишешь снова"),
+    ("Моє обличчя, коли план спрацював з першого разу", "Моё лицо, когда план сработал с первого раза"),
+    ("Коли намагаєшся вийти з розмови, а вона не закінчується", "Когда пытаешься выйти из разговора, а он не заканчивается"),
+    ("Я, коли бачу знижку на те, що мені не потрібно", "Я, когда вижу скидку на то, что мне не нужно"),
+    ("Коли всі вже на зустрічі, а ти шукаєш кнопку 'увімкнути мікрофон'", "Когда все уже на встрече, а ты ищешь кнопку 'включить микрофон'"),
+    ("Моя пам'ять, коли треба згадати чому я зайшов у кімнату", "Моя память, когда нужно вспомнить зачем я зашёл в комнату"),
+    ("Коли вдаєш зайнятість, бо начальник проходить повз", "Когда делаешь вид, что занят, потому что начальник проходит мимо"),
+    ("Я після того як натиснув 'відкласти будильник' 6 разів", "Я после того как нажал 'отложить будильник' 6 раз"),
+    ("Коли друг каже 'я майже готовий' і це означає ще годину", "Когда друг говорит 'я почти готов' и это значит ещё час"),
+    ("Моя реакція коли інтернет повертається після обриву", "Моя реакция когда интернет возвращается после обрыва"),
+    ("Коли намагаєшся виглядати нормально після того як спіткнувся", "Когда пытаешься выглядеть нормально после того как споткнулся"),
+    # --- ще нові ситуації (100 всього) ---
+    ("Коли WiFi зник рівно на найцікавішому моменті", "Когда WiFi пропал ровно на самом интересном моменте"),
+    ("Моя реакція на 'ми ж домовлялись' коли нічого не пам'ятаю", "Моя реакция на 'мы же договаривались' когда ничего не помню"),
+    ("Коли мама каже 'ми вже виходимо' і проходить 40 хвилин", "Когда мама говорит 'мы уже выходим' и проходит 40 минут"),
+    ("Я під час дзвінка на якому можна було б просто написати", "Я во время звонка, на котором можно было просто написать"),
+    ("Коли намагаєшся поснідати, а вже час обідати", "Когда пытаешься позавтракать, а уже время обедать"),
+    ("Моє 'я не засну' о 9 вечора під серіальчик", "Моё 'я не усну' в 9 вечера под сериальчик"),
+    ("Коли всі навколо вже дорослі, а ти ще ні", "Когда все вокруг уже взрослые, а ты ещё нет"),
+    ("Моя впевненість після 'я все зрозумів' на лекції", "Моя уверенность после 'я всё понял' на лекции"),
+    ("Коли йдеш з магазину без пакету і все падає", "Когда идёшь из магазина без пакета и всё падает"),
+    ("Я після того як натиснув 'сплатити' не подивившись суму", "Я после того как нажал 'оплатить' не глянув сумму"),
+    ("Коли GPS каже 'розвернітесь' десятий раз підряд", "Когда GPS говорит 'развернитесь' десятый раз подряд"),
+    ("Мій кіт коли я працюю з дому: наглядач чи саботажник?", "Мой кот когда я работаю из дома: надзиратель или саботажник?"),
+    ("Коли написав 'зараз буду' а сам ще в пижамі", "Когда написал 'сейчас буду' а сам ещё в пижаме"),
+    ("Моя реакція на ціну авокадо у 2025", "Моя реакция на цену авокадо в 2025"),
+    ("Коли вмикаєш камеру на зумі і бачиш свій вигляд", "Когда включаешь камеру на зуме и видишь свой вид"),
+    ("Я перед тим як написати 'без проблем' маючи 99 проблем", "Я перед тем как написать 'без проблем' имея 99 проблем"),
+    ("Коли бабуся питає чому худий, хоча ти не худий", "Когда бабушка спрашивает почему худой, хотя ты не худой"),
+    ("Моя мотивація у понеділок vs у п'ятницю ввечері", "Моя мотивация в понедельник vs в пятницу вечером"),
+    ("Коли хтось повільно набирає повідомлення а потім стирає", "Когда кто-то медленно набирает сообщение а потом стирает"),
+    ("Я, коли кажу 'це мій останній мем на сьогодні'", "Я, когда говорю 'это мой последний мем на сегодня'"),
+    # --- ще нові ситуації (120 всього) ---
+    ("Коли дивишся фільм жахів і кажеш 'я б так не зробив'", "Когда смотришь фильм ужасов и говоришь 'я бы так не сделал'"),
+    ("Моя реакція коли хтось каже 'ти схожий на батька/маму'", "Моя реакция когда кто-то говорит 'ты похож на отца/маму'"),
+    ("Коли замовив онлайн одяг і він зовсім не такий як на фото", "Когда заказал онлайн одежду и она совсем не такая как на фото"),
+    ("Я, коли намагаюсь пояснити мем батькам", "Я, когда пытаюсь объяснить мем родителям"),
+    ("Коли в кіно хтось їсть попкорн голосніше за фільм", "Когда в кино кто-то ест попкорн громче чем фильм"),
+    ("Моє обличчя на робочому зумі vs в дзеркалі вдома", "Моё лицо на рабочем зуме vs в зеркале дома"),
+    ("Коли бабуся каже 'ти худий, їж' а ти щойно поїв", "Когда бабушка говорит 'ты худой, ешь' а ты только что поел"),
+    ("Я після перегляду мотиваційного відео в 2 ночі", "Я после просмотра мотивационного видео в 2 ночи"),
+    ("Коли друг каже 'я знаю коротку дорогу' і ви заблукали", "Когда друг говорит 'я знаю короткую дорогу' и вы заблудились"),
+    ("Моя впевненість перед іспитом vs під час іспиту", "Моя уверенность перед экзаменом vs во время экзамена"),
+    ("Коли хтось каже 'я не п'ю' а потім першим танцює на столі", "Когда кто-то говорит 'я не пью' а потом первым танцует на столе"),
+    ("Я, коли треба відповісти на повідомлення тижневої давнини", "Я, когда надо ответить на сообщение недельной давности"),
+    ("Коли ставиш на зарядку телефон і він показує 1%", "Когда ставишь на зарядку телефон и он показывает 1%"),
+    ("Моє ставлення до домашніх обов'язків в 20 vs в 30", "Моё отношение к домашним обязанностям в 20 vs в 30"),
+    ("Коли кажеш 'ок гугл' а телефон відповідає сірі", "Когда говоришь 'ок гугл' а телефон отвечает сири"),
+    ("Я, коли хтось питає 'а що ти робив цілий день'", "Я, когда кто-то спрашивает 'а что ты делал весь день'"),
+    ("Коли знайшов ідеальний мем але не знаєш кому послати", "Когда нашёл идеальный мем но не знаешь кому послать"),
+    ("Моя соціальна батарейка після 2 годин на вечірці", "Моя социальная батарейка после 2 часов на вечеринке"),
+    ("Коли хтось каже 'можу секунду?' і це тягнеться 20 хвилин", "Когда кто-то говорит 'можно секунду?' и это тянется 20 минут"),
+    ("Я перед дедлайном vs я коли дедлайн через місяць", "Я перед дедлайном vs я когда дедлайн через месяц"),
+]
+
+# ---------------------------------------------------------------------------
+# МЕМ-КАРТКИ  (title, image_url)
+# Публічні шаблони imgflip. Усі URL перевірені (HTTP 200).
+# ---------------------------------------------------------------------------
+MEMES = [
+    ("Drake Hotline Bling", "https://i.imgflip.com/30b1gx.jpg"),
+    ("Two Buttons", "https://i.imgflip.com/1g8my4.jpg"),
+    ("Distracted Boyfriend", "https://i.imgflip.com/1ur9b0.jpg"),
+    ("Left Exit 12 Off Ramp", "https://i.imgflip.com/22bdq6.jpg"),
+    ("Running Away Balloon", "https://i.imgflip.com/261o3j.jpg"),
+    ("Always Has Been", "https://i.imgflip.com/46e43q.png"),
+    ("Waiting Skeleton", "https://i.imgflip.com/2fm6x.jpg"),
+    ("Gru's Plan", "https://i.imgflip.com/26jxvz.jpg"),
+    ("Epic Handshake", "https://i.imgflip.com/28j0te.jpg"),
+    ("Disaster Girl", "https://i.imgflip.com/23ls.jpg"),
+    ("Anakin Padme 4 Panel", "https://i.imgflip.com/5c7lwq.png"),
+    ("X, X Everywhere", "https://i.imgflip.com/1ihzfe.jpg"),
+    ("Sad Pablo Escobar", "https://i.imgflip.com/1c1uej.jpg"),
+    ("Woman Yelling At Cat", "https://i.imgflip.com/345v97.jpg"),
+    ("Mocking Spongebob", "https://i.imgflip.com/1otk96.jpg"),
+    ("Batman Slapping Robin", "https://i.imgflip.com/9ehk.jpg"),
+    ("Buff Doge vs. Cheems", "https://i.imgflip.com/43a45p.png"),
+    ("Expanding Brain", "https://i.imgflip.com/1jwhww.jpg"),
+    ("This Is Fine", "https://i.imgflip.com/wxica.jpg"),
+    ("Ancient Aliens", "https://i.imgflip.com/26am.jpg"),
+    ("Tuxedo Winnie The Pooh", "https://i.imgflip.com/2ybua0.png"),
+    ("Y'all Got Any More Of That", "https://i.imgflip.com/21uy0f.jpg"),
+    ("Absolute Cinema", "https://i.imgflip.com/8d317n.png"),
+    ("They're The Same Picture", "https://i.imgflip.com/2za3u1.jpg"),
+    ("One Does Not Simply", "https://i.imgflip.com/1bij.jpg"),
+    ("Monkey Puppet", "https://i.imgflip.com/2gnnjh.jpg"),
+    ("Is This A Pigeon", "https://i.imgflip.com/1o00in.jpg"),
+    ("Bike Fall", "https://i.imgflip.com/1b42wl.jpg"),
+    ("Put My Trophy If I Had One", "https://i.imgflip.com/1wz1x.jpg"),
+    ("You Guys Are Getting Paid", "https://i.imgflip.com/2xscjb.png"),
+    ("Clown Applying Makeup", "https://i.imgflip.com/38el31.jpg"),
+    ("Megamind Peeking", "https://i.imgflip.com/64sz4u.png"),
+    ("Thinking About Other Women", "https://i.imgflip.com/1tl71a.jpg"),
+    ("Oprah You Get A", "https://i.imgflip.com/gtj5t.jpg"),
+    ("Evil Kermit", "https://i.imgflip.com/1e7ql7.jpg"),
+    ("Boardroom Meeting Suggestion", "https://i.imgflip.com/m78d.jpg"),
+    ("Hide The Pain Harold", "https://i.imgflip.com/gk5el.jpg"),
+    ("Roll Safe Think About It", "https://i.imgflip.com/1h7in3.jpg"),
+    ("Surprised Pikachu", "https://i.imgflip.com/2kbn1e.jpg"),
+    ("Leonardo Dicaprio Cheers", "https://i.imgflip.com/39t1o.jpg"),
+    ("Pawn Stars Best I Can Do", "https://i.imgflip.com/19vcz0.jpg"),
+    ("Futurama Fry", "https://i.imgflip.com/1bgw.jpg"),
+    ("Sleeping Shaq", "https://i.imgflip.com/1nck6k.jpg"),
+    ("Squidward Window", "https://i.imgflip.com/145qvv.jpg"),
+    ("Imagination Spongebob", "https://i.imgflip.com/3i7p.jpg"),
+    ("Spider-Man Triple Pointing", "https://i.imgflip.com/3eqjd8.jpg"),
+    ("Soldier Protecting Sleeping Child", "https://i.imgflip.com/2tzo2k.jpg"),
+    ("Two Guys On A Bus", "https://i.imgflip.com/5v6gwj.jpg"),
+    ("Inhaling Seagull", "https://i.imgflip.com/1w7ygt.jpg"),
+    ("Where Monkey", "https://i.imgflip.com/58eyvu.png"),
+    ("No - Yes", "https://i.imgflip.com/24zoa8.jpg"),
+    ("Third World Skeptical Kid", "https://i.imgflip.com/265k.jpg"),
+    ("Laughing Leo", "https://i.imgflip.com/4acd7j.png"),
+    ("They Don't Know", "https://i.imgflip.com/4pn1an.png"),
+    ("Friendship Ended", "https://i.imgflip.com/29v4rt.jpg"),
+    ("AJ Styles & Undertaker", "https://i.imgflip.com/3vfrmx.jpg"),
+    ("Three-Headed Dragon", "https://i.imgflip.com/33e92f.jpg"),
+    ("Two Paths", "https://i.imgflip.com/54d9lj.png"),
+    ("Grandma Finds The Internet", "https://i.imgflip.com/1bhw.jpg"),
+    ("Whisper And Goosebumps", "https://i.imgflip.com/1op9wy.jpg"),
+    ("Anime Girl Hiding From Terminator", "https://i.imgflip.com/3po4m7.jpg"),
+    ("Grant Gustin Over Grave", "https://i.imgflip.com/3nx72a.png"),
+    ("Who Killed Hannibal", "https://i.imgflip.com/28s2gu.jpg"),
+    ("The Scroll Of Truth", "https://i.imgflip.com/21tqf4.jpg"),
+    ("Star Wars Yoda", "https://i.imgflip.com/8k0sa.jpg"),
+    ("Look At Me", "https://i.imgflip.com/hmt3v.jpg"),
+    ("Success Kid", "https://i.imgflip.com/1bhk.jpg"),
+    ("Spider-Man Pointing", "https://i.imgflip.com/1tkjq9.jpg"),
+    ("The Rock Driving", "https://i.imgflip.com/grr.jpg"),
+    ("Is This A Butterfly", "https://i.imgflip.com/2cjr7j.jpg"),
+    ("Finding Neverland", "https://i.imgflip.com/3pnmg.jpg"),
+    ("Scooby-Doo Mask Reveal", "https://i.imgflip.com/2eeunw.jpg"),
+    ("Say The Line Bart", "https://i.imgflip.com/176h0h.jpg"),
+    ("Yo Dawg Heard You", "https://i.imgflip.com/26hg.jpg"),
+    ("Domino Effect", "https://i.imgflip.com/2oo7h0.jpg"),
+    ("I'm The Captain Now", "https://i.imgflip.com/hlmst.jpg"),
+    ("American Chopper Argument", "https://i.imgflip.com/2896ro.jpg"),
+    ("Disappointed Black Guy", "https://i.imgflip.com/u0pf0.jpg"),
+    ("Charlie Conspiracy (Always Sunny)", "https://i.imgflip.com/1itoun.jpg"),
+    ("Bugs Bunny Communist", "https://i.imgflip.com/44eggm.png"),
+    ("Mother Ignoring Drowning Kid", "https://i.imgflip.com/46hhvr.jpg"),
+    ("0 Days Without (Simpsons)", "https://i.imgflip.com/72epa9.png"),
+    ("Drake Blank", "https://i.imgflip.com/1iruch.jpg"),
+    ("Left Exit 12 Dual", "https://i.imgflip.com/4t0m5.jpg"),
+    ("Captain America Elevator", "https://i.imgflip.com/2wifvo.jpg"),
+    ("Willy Wonka Condescending", "https://i.imgflip.com/u94.jpg"),
+    ("Patrick Star Wallet", "https://i.imgflip.com/2p3dw0.jpg"),
+    ("Thanos Impossible", "https://i.imgflip.com/3bfaqn.jpg"),
+    ("Truman Show", "https://i.imgflip.com/95uyf8.jpg"),
+    ("But That's None Of My Business (Kermit)", "https://i.imgflip.com/9sw43.jpg"),
+    ("I'm Something Of A Scientist Myself", "https://i.imgflip.com/27qxmb.jpg"),
+    ("Grim Reaper Knocking Door", "https://i.imgflip.com/1qg8fp.jpg"),
+    ("What Gives People Feelings Of Power", "https://i.imgflip.com/2xytmc.jpg"),
+    ("C'mon Do Something", "https://i.imgflip.com/bwu6w.jpg"),
+    ("Undertaker Sitting Up", "https://i.imgflip.com/49gdf9.jpg"),
+    ("Moe Throws Barney (Simpsons)", "https://i.imgflip.com/34eewo.jpg"),
+    ("SpongeBob Rainbow", "https://i.imgflip.com/jafn4.jpg"),
+    ("Squid Game", "https://i.imgflip.com/98qr33.jpg"),
+    ("Obama Medal (Self Award)", "https://i.imgflip.com/1hhv9m.jpg"),
+    ("Wolverine Remember", "https://i.imgflip.com/s2zxn.jpg"),
+    ("The Office Congratulations", "https://i.imgflip.com/2ji8hx.jpg"),
+    ("Kermit Window (Dark Side)", "https://i.imgflip.com/lukr1.jpg"),
+    ("SpongeBob Burning Paper", "https://i.imgflip.com/2bc2vf.jpg"),
+    ("Second Breakfast (LOTR)", "https://i.imgflip.com/7a9b3.jpg"),
+    ("Drake No/Yes", "https://i.imgflip.com/21zofh.jpg"),
+    ("I Don't Want To Play With You Anymore (Toy Story)", "https://i.imgflip.com/38yapg.jpg"),
+    ("Mr. McMahon Reaction", "https://i.imgflip.com/23znef.jpg"),
+    ("Monster House Disappointed", "https://i.imgflip.com/apirkq.jpg"),
+    ("Both Buttons Pressed", "https://i.imgflip.com/4qntuo.jpg"),
+    ("Sure Grandma Let's Get You To Bed", "https://i.imgflip.com/4flche.jpg"),
+    ("The Future World If", "https://i.imgflip.com/2ynjel.jpg"),
+    ("Mugatu So Hot Right Now (Zoolander)", "https://i.imgflip.com/cv1y0.jpg"),
+    ("Skinner Out Of Touch (Simpsons)", "https://i.imgflip.com/1jgrgn.jpg"),
+    ("Hello Human Resources", "https://i.imgflip.com/4g4ku3.jpg"),
+    ("Hold Fart", "https://i.imgflip.com/of959.jpg"),
+    ("Math Lady / Confused Lady", "https://i.imgflip.com/1c81c1.jpg"),
+    ("Car Salesman Slaps Roof Of Car", "https://i.imgflip.com/2d3al6.jpg"),
+    ("Dinkleberg (Fairly Odd Parents)", "https://i.imgflip.com/ukx.jpg"),
+    ("Oprah Everybody Gets A Car", "https://i.imgflip.com/49z6c.jpg"),
+    ("Captain Picard Facepalm", "https://i.imgflip.com/wczz.jpg"),
+    ("Surprised Koala", "https://i.imgflip.com/ljk.jpg"),
+    ("Yhorm Dark Souls (Big vs Small)", "https://i.imgflip.com/2u2xdb.jpg"),
+    ("Afraid To Ask Andy (Parks & Rec)", "https://i.imgflip.com/emccr.jpg"),
+    ("Grumpy Cat", "https://i.imgflip.com/8p0a.jpg"),
+    ("Put It Somewhere Else Patrick", "https://i.imgflip.com/1bil.jpg"),
+    ("See Nobody Cares (Jurassic Park)", "https://i.imgflip.com/3vzej.jpg"),
+    ("Pepe The Frog", "https://i.imgflip.com/lntct.jpg"),
+    ("Incoming Call", "https://i.imgflip.com/2byuiy.jpg"),
+    ("Who Wants To Be A Millionaire", "https://i.imgflip.com/2qkodw.jpg"),
+    ("Mr Bean Waiting", "https://i.imgflip.com/21ajtl.jpg"),
+    ("Dr Evil Laser (Austin Powers)", "https://i.imgflip.com/odluv.jpg"),
+    ("Cute Cat", "https://i.imgflip.com/4xgqu.jpg"),
+    ("Aaaaand Its Gone (South Park)", "https://i.imgflip.com/gft6.jpg"),
+    ("Steve Buscemi Fellow Kids", "https://i.imgflip.com/z2nqj.jpg"),
+    ("Don't You Squidward", "https://i.imgflip.com/26br.jpg"),
+    ("Dave Chappelle Modern Problems", "https://i.imgflip.com/k6jjl.jpg"),
+    ("SpongeBob Ight Imma Head Out", "https://i.imgflip.com/392xtu.jpg"),
+    ("Elmo Fire", "https://i.imgflip.com/2bqzyl.jpg"),
+    ("Avatar Guy Pointing (James Cameron)", "https://i.imgflip.com/7bv2j9.jpg"),
+    ("Woody And Buzz Everywhere", "https://i.imgflip.com/1c7cy8.jpg"),
+    ("Confession Bear", "https://i.imgflip.com/25wb.jpg"),
+    ("Soyboy Vs Yes Chad", "https://i.imgflip.com/3umnr3.jpg"),
+    ("Philosoraptor", "https://i.imgflip.com/1bgs.jpg"),
+    ("Laughing Men In Suits", "https://i.imgflip.com/jrj7.jpg"),
+    ("Man Holding Cardboard Sign", "https://i.imgflip.com/8c9dbh.jpg"),
+    ("Satisfied Seal", "https://i.imgflip.com/e8gx0.jpg"),
+    ("Get In Loser (Mean Girls)", "https://i.imgflip.com/h8066.jpg"),
+    ("The Office Handshake", "https://i.imgflip.com/3f0mvv.jpg"),
+    ("Pepperidge Farm Remembers", "https://i.imgflip.com/qep4.jpg"),
+    ("Bilbo Why Shouldn't I Keep It (LOTR)", "https://i.imgflip.com/48sl64.jpg"),
+    ("Why Can't You Just Be Normal", "https://i.imgflip.com/50x2l1.jpg"),
+    ("Simba Shadowy Place (Lion King)", "https://i.imgflip.com/7yk6.jpg"),
+    ("Homer Simpson's Back Fat", "https://i.imgflip.com/2lhzmp.jpg"),
+    ("Smiling Cat", "https://i.imgflip.com/amuvy.jpg"),
+    ("Brain Before Sleep", "https://i.imgflip.com/34vt4i.jpg"),
+    ("I'll Just Wait Here", "https://i.imgflip.com/2cp1.jpg"),
+    ("Illusion Of Free Choice", "https://i.imgflip.com/2dhurg.jpg"),
+    ("I'm Something Of A _ Myself (variant)", "https://i.imgflip.com/2y8ggi.jpg"),
+    ("Matrix Morpheus (What If I Told You)", "https://i.imgflip.com/25w3.jpg"),
+    ("Here's Johnny (The Shining)", "https://i.imgflip.com/6mk4.jpg"),
+    ("I See Dead People (Sixth Sense)", "https://i.imgflip.com/498j.jpg"),
+    ("Yes Honey (Sad Guy On Couch)", "https://i.imgflip.com/42ej41.jpg"),
+    ("Ben Affleck Smoking", "https://i.imgflip.com/2qx7sw.jpg"),
+    ("Patrick To Do List (SpongeBob)", "https://i.imgflip.com/43iacv.jpg"),
+    ("Red Pill Blue Pill (Matrix)", "https://i.imgflip.com/1e4lu0.jpg"),
+    ("Hand On Shoulder Guy", "https://i.imgflip.com/8cfr8i.jpg"),
+    # --- чисті шаблони (без вшитого англ. тексту) ---
+    ("Crying Cat", "https://i.imgflip.com/p0a19.jpg"),
+    ("Anthony Adams Rubbing Hands", "https://i.imgflip.com/391pr7.jpg"),
+    ("Phoebe Joey (Friends)", "https://i.imgflip.com/3tstcd.jpg"),
+    ("Traumatized Mr. Incredible", "https://i.imgflip.com/5mir21.jpg"),
+    ("Straight To Jail", "https://i.imgflip.com/2k4lwy.jpg"),
+    ("Jason Momoa Henry Cavill", "https://i.imgflip.com/29nahn.jpg"),
+    ("Predator Handshake", "https://i.imgflip.com/273uec.jpg"),
+    ("Sweating Bullets", "https://i.imgflip.com/gx29i.jpg"),
+    ("Disappointed Man", "https://i.imgflip.com/3mkotw.jpg"),
+    ("Happy Shock (2 panels)", "https://i.imgflip.com/43plhr.jpg"),
+    ("Shut Up And Take My Money Fry", "https://i.imgflip.com/3si4.jpg"),
+    ("Horse Drawing", "https://i.imgflip.com/2siu6l.jpg"),
+    ("Drowning Kid In The Pool", "https://i.imgflip.com/2am8vj.jpg"),
+    ("Burning House Girl", "https://i.imgflip.com/clr1b.jpg"),
+    ("It's Been 84 Years", "https://i.imgflip.com/mfrrm.jpg"),
+    ("Leonardo DiCaprio Pointing", "https://i.imgflip.com/3vtsmc.jpg"),
+    ("PTSD Chihuahua", "https://i.imgflip.com/39791a.jpg"),
+    ("Scared Cat", "https://i.imgflip.com/2hgfw.jpg"),
+    ("Narcos Waiting", "https://i.imgflip.com/28this.jpg"),
+    ("Giga Chad", "https://i.imgflip.com/35bdwf.jpg"),
+    ("Nick Young Confused", "https://i.imgflip.com/oqii0.jpg"),
+    ("Smudge The Cat", "https://i.imgflip.com/39binw.jpg"),
+    ("Guy With Sand In Hands", "https://i.imgflip.com/vj2v8.jpg"),
+    ("Sad Guy Happy Guy Bus", "https://i.imgflip.com/5vlrok.jpg"),
+    ("Spongebob Looking Out Window", "https://i.imgflip.com/20oad6.jpg"),
+    ("Patrick Scared", "https://i.imgflip.com/2x81xe.jpg"),
+    ("Laughing Wolf", "https://i.imgflip.com/47fb8x.jpg"),
+    ("Floating Boy Chasing Running Boy", "https://i.imgflip.com/2ndd7y.jpg"),
+    ("Willem Dafoe Looking Up", "https://i.imgflip.com/5blorg.jpg"),
+    ("Strong Dog vs Weak Dog", "https://i.imgflip.com/430rn7.jpg"),
+    ("Salt Bae", "https://i.imgflip.com/1hj6i2.jpg"),
+    ("Evil Toddler", "https://i.imgflip.com/51s5.jpg"),
+    ("Spiderman Glasses (blur)", "https://i.imgflip.com/2jay5q.jpg"),
+    ("Car Drift (Two Roads)", "https://i.imgflip.com/22modp.jpg"),
+]
+
+
+def sql_escape(s: str) -> str:
+    return s.replace("'", "''")
+
+
+def gen_deck_ts() -> str:
+    lines = []
+    lines.append("// Автозгенеровано tools/gen_seed.py — вбудована колода для ОФЛАЙН-гри (без сервера/БД).")
+    lines.append("// Ті самі дані, що й у apps/web/db/seed.sql. НЕ редагувати вручну — правити в gen_seed.py.")
+    lines.append("export type Situation = { id: number; text_ua: string; text_ru: string }")
+    lines.append("export type MemeCard = { id: number; title: string; image_url: string }")
+    lines.append("")
+    lines.append("export const SITUATIONS: Situation[] = [")
+    for i, (ua, ru) in enumerate(SITUATIONS, start=1):
+        lines.append(
+            f"  {{ id: {i}, text_ua: {json.dumps(ua, ensure_ascii=False)}, text_ru: {json.dumps(ru, ensure_ascii=False)} }},"
+        )
+    lines.append("]")
+    lines.append("")
+    lines.append("export const MEME_CARDS: MemeCard[] = [")
+    for i, (title, url) in enumerate(MEMES, start=1):
+        lines.append(
+            f"  {{ id: {i}, title: {json.dumps(title, ensure_ascii=False)}, image_url: {json.dumps(url, ensure_ascii=False)} }},"
+        )
+    lines.append("]")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def gen_seed_sql() -> str:
+    lines = []
+    lines.append("-- Автозгенеровано tools/gen_seed.py. Запускати ПІСЛЯ schema.sql.")
+    lines.append("-- psql \"$DATABASE_URL\" -f db/seed.sql")
+    lines.append("TRUNCATE meme_cards RESTART IDENTITY CASCADE;")
+    lines.append("TRUNCATE situations RESTART IDENTITY CASCADE;")
+    lines.append("")
+    lines.append("INSERT INTO situations (text_ua, text_ru) VALUES")
+    rows = []
+    for ua, ru in SITUATIONS:
+        rows.append(f"  ('{sql_escape(ua)}', '{sql_escape(ru)}')")
+    lines.append(",\n".join(rows) + ";")
+    lines.append("")
+    lines.append("INSERT INTO meme_cards (title, image_url) VALUES")
+    rows = []
+    for title, url in MEMES:
+        rows.append(f"  ('{sql_escape(title)}', '{sql_escape(url)}')")
+    lines.append(",\n".join(rows) + ";")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def gen_preview_md() -> str:
+    lines = []
+    lines.append("# МемКарти — превʼю контенту")
+    lines.append("")
+    lines.append(f"Згенеровано автоматично з `tools/gen_seed.py`. "
+                 f"**{len(MEMES)} мем-карток** та **{len(SITUATIONS)} ситуацій**.")
+    lines.append("")
+    lines.append("> Якщо якась картинка не показується — значить її URL став недоступним, "
+                 "повідом і я заміню.")
+    lines.append("")
+    lines.append(f"## 🖼️ Мем-картки ({len(MEMES)})")
+    lines.append("")
+    lines.append("<table>")
+    COLS = 4
+    for row_start in range(0, len(MEMES), COLS):
+        chunk = list(enumerate(MEMES[row_start:row_start + COLS], start=row_start + 1))
+        lines.append("<tr>")
+        for idx, (title, url) in chunk:
+            lines.append(
+                f'<td align="center" width="160"><img src="{url}" width="150"/><br/>'
+                f"<sub><b>#{idx}</b> {title}</sub></td>"
+            )
+        lines.append("</tr>")
+    lines.append("</table>")
+    lines.append("")
+    lines.append(f"## 💬 Ситуації ({len(SITUATIONS)})")
+    lines.append("")
+    lines.append("| # | 🇺🇦 Українською | 🇷🇺 По-русски |")
+    lines.append("|---|---|---|")
+    for i, (ua, ru) in enumerate(SITUATIONS, start=1):
+        ua_c = ua.replace("|", "\\|")
+        ru_c = ru.replace("|", "\\|")
+        lines.append(f"| {i} | {ua_c} | {ru_c} |")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write(path: str, content: str):
+    full = os.path.join(ROOT, path)
+    os.makedirs(os.path.dirname(full), exist_ok=True)
+    with open(full, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"  wrote {path} ({len(content)} bytes)")
+
+
+def main():
+    # Перевірка унікальності URL
+    urls = [u for _, u in MEMES]
+    dupes = {u for u in urls if urls.count(u) > 1}
+    assert not dupes, f"Дублікати URL: {dupes}"
+
+    print(f"Ситуацій: {len(SITUATIONS)} | Мем-карток: {len(MEMES)}")
+    write("apps/mobile/src/game/engine/deck.ts", gen_deck_ts())
+    write("apps/web/db/seed.sql", gen_seed_sql())
+    write("CARDS_PREVIEW.md", gen_preview_md())
+    print("Готово.")
+
+
+if __name__ == "__main__":
+    main()
