@@ -14,7 +14,7 @@ import cors from 'cors';
 import { Server, type Socket } from 'socket.io';
 import { RoomManager, HOST_ID, type Room } from './rooms';
 import { botsSubmit, botsVote } from './engine';
-import { loadFlags, addFlag, allFlags, summary, toCsv } from './qa';
+import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, summary, toCsv } from './qa';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -38,7 +38,9 @@ app.post('/qa/flag', (req, res) => {
   if (typeof b.memeId !== 'number') {
     return res.status(400).json({ error: 'memeId (number) is required' });
   }
-  const rec = addFlag({
+  // From the review screen we don't want duplicate spam; in-game flags append.
+  const fn = b.by === 'review' ? setFlagOnce : addFlag;
+  const rec = fn({
     memeId: b.memeId,
     title: b.title,
     imageUrl: b.imageUrl,
@@ -47,6 +49,21 @@ app.post('/qa/flag', (req, res) => {
     by: b.by,
   });
   res.json({ ok: true, flag: rec });
+});
+
+// Un-mark a meme (review screen toggle off): removes all its flags.
+app.post('/qa/unflag', (req, res) => {
+  const b = req.body ?? {};
+  if (typeof b.memeId !== 'number') {
+    return res.status(400).json({ error: 'memeId (number) is required' });
+  }
+  const removed = removeFlags(b.memeId);
+  res.json({ ok: true, removed });
+});
+
+// Just the distinct flagged meme ids — used by the review screen to pre-mark.
+app.get('/qa/flagged-ids', (_req, res) => {
+  res.json({ ids: flaggedIds() });
 });
 
 // Review collected flags as JSON (count + per-meme summary + raw list).

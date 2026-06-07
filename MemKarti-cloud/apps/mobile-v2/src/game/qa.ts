@@ -25,3 +25,29 @@ export async function reportBadMeme(
     return false;
   }
 }
+
+// Review screen: fetch the set of meme ids already marked as bad on the server.
+export async function fetchFlaggedIds(): Promise<Set<number>> {
+  try {
+    const res = await fetch(`${SERVER_URL}/qa/flagged-ids`);
+    if (!res.ok) return new Set();
+    const data = await res.json();
+    return new Set<number>(Array.isArray(data.ids) ? data.ids : []);
+  } catch {
+    return new Set();
+  }
+}
+
+// Review screen: un-mark a meme (remove its flags on the server).
+export async function unflagMeme(memeId: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${SERVER_URL}/qa/unflag`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memeId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

@@ -157,6 +157,12 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.btnSecondaryText}>Грати з ботами (соло)</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push('/memes')}
+                  style={styles.btnReview}
+                >
+                  <Text style={styles.btnReviewText}>🚩 Переглянути всі меми (QA)</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={{ marginTop: 20, gap: 10 }}>
@@ -240,6 +246,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF', borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', justifyContent: 'center', marginTop: 12,
   },
+  btnReview: {
+    backgroundColor: '#FEF2F2', borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center', marginTop: 12,
+    borderWidth: 1, borderColor: '#FCA5A5',
+  },
+  btnReviewText: { fontSize: 15, color: '#B91C1C', fontWeight: '600' },
 
   howLabel: { fontSize: 12, color: '#6B7280', marginBottom: 12, letterSpacing: 0.5, fontWeight: '500' },
 });

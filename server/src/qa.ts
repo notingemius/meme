@@ -58,8 +58,43 @@ export function addFlag(input: Omit<MemeFlag, 'ts'> & { ts?: number }): MemeFlag
   return rec;
 }
 
+// Idempotent flag used by the review screen: only records the meme once, so
+// repeatedly toggling doesn't inflate counts. Returns the record (new or kept).
+export function setFlagOnce(input: Omit<MemeFlag, 'ts'> & { ts?: number }): MemeFlag {
+  const existing = flags.find((f) => f.memeId === input.memeId);
+  if (existing) return existing;
+  return addFlag(input);
+}
+
 export function allFlags(): MemeFlag[] {
   return flags;
+}
+
+// Distinct meme ids that have at least one flag — the curated "bad" set used by
+// the in-app review screen to show which memes are already marked.
+export function flaggedIds(): number[] {
+  return [...new Set(flags.map((f) => f.memeId))];
+}
+
+// Rewrite the whole file from the in-memory list (needed after removals).
+function rewriteFile(): void {
+  ensureDir();
+  try {
+    const body = flags.map((f) => JSON.stringify(f)).join('\n');
+    fs.writeFileSync(FILE, body ? body + '\n' : '');
+  } catch (e) {
+    console.error('[qa] failed to rewrite flags', e);
+  }
+}
+
+// Remove every flag for a meme (used when un-marking in the review screen).
+// Returns how many entries were removed.
+export function removeFlags(memeId: number): number {
+  const before = flags.length;
+  flags = flags.filter((f) => f.memeId !== memeId);
+  const removed = before - flags.length;
+  if (removed > 0) rewriteFile();
+  return removed;
 }
 
 // Aggregated counts per meme, most-flagged first — the curation worklist.
