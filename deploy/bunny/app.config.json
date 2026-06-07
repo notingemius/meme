@@ -1,0 +1,23 @@
+{
+  "_comment": "Portable Bunny Magic Containers spec for the MemKarti online server. No secrets here. Reprovision on any Bunny account with: BUNNY_API_KEY=xxx python3 deploy/bunny/provision.py",
+  "name": "memkarti-server",
+  "runtimeType": 1,
+  "autoScaling": { "min": 1, "max": 1 },
+  "region": {
+    "id": "DE",
+    "maxRegions": 1,
+    "provisioning": "static"
+  },
+  "container": {
+    "name": "server",
+    "registryHost": "ghcr.io",
+    "imageNamespace": "notingemius",
+    "imageName": "memkarti-server",
+    "imageTag": "latest",
+    "imagePullPolicy": 1
+  },
+  "endpoint": {
+    "displayName": "http",
+    "containerPort": 3000
+  }
+}
