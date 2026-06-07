@@ -62,7 +62,7 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.heroBlock}>
-            <Text style={styles.heroTitle}>МемКарти 🃏</Text>
+            <Text style={styles.heroTitle}>МемКарти 🃏 ✨</Text>
             <Text style={styles.heroSubtitle}>
               Картки з ситуаціями та найсмішніші меми. Збирай друзів і дізнайся,
               у кого найкраще почуття гумору.
@@ -86,7 +86,7 @@ export default function HomeScreen() {
 
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>
-              {mode === 'menu' ? 'Почати гру' : 'Приєднатись до кімнати'}
+              {mode === 'menu' ? '🎮 Нова гра' : 'Приєднатись до кімнати'}
             </Text>
             <Text style={styles.formSubtitle}>
               {mode === 'menu'
