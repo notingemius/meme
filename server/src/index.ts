@@ -13,6 +13,7 @@ import express from 'express';
 import cors from 'cors';
 import { Server, type Socket } from 'socket.io';
 import { RoomManager, HOST_ID, type Room } from './rooms';
+import { botsSubmit, botsVote } from './engine';
 import { loadFlags, addFlag, allFlags, summary, toCsv } from './qa';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -84,6 +85,35 @@ function broadcast(room: Room): void {
   // Lobby-facing member list (online/ready/score) for any UI that wants it.
   io.to(room.code).emit('roomUpdated', { roomCode: room.code, players });
   syncPhaseTimer(room);
+  scheduleBots(room);
+}
+
+// If the room has bots and someone still hasn't acted in pick/vote, make the
+// bots take their turn after a short, human-like delay. This re-broadcasts,
+// which re-evaluates and naturally chains pick -> vote -> reveal.
+const BOT_DELAY_MS = 1200;
+
+function scheduleBots(room: Room): void {
+  const phase = room.state.phase;
+  if (phase !== 'pick' && phase !== 'vote') return;
+  const bots = room.state.players.filter((p) => p.id.startsWith('bot'));
+  if (bots.length === 0) return;
+  const pending = bots.some((p) =>
+    phase === 'pick'
+      ? !room.state.submissions.some((s) => s.playerId === p.id)
+      : !room.state.votes[p.id],
+  );
+  if (!pending) return;
+  if (room.botTimer) return; // already scheduled
+  room.botTimer = setTimeout(() => {
+    room.botTimer = null;
+    if (room.state.phase === 'pick') {
+      room.state = botsSubmit(room.state);
+    } else if (room.state.phase === 'vote') {
+      room.state = botsVote(room.state);
+    }
+    broadcast(room);
+  }, BOT_DELAY_MS);
 }
 
 // Schedule (or cancel) the auto-advance timer when the phase changes. Uses the
@@ -210,6 +240,17 @@ io.on('connection', (socket: Socket) => {
     broadcast(room);
   });
 
+  // Replace a "bad" meme in hand with a fresh one (pick phase only). The engine
+  // also posts a system chat message so everyone sees the swap.
+  socket.on('replaceCard', (payload: { roomCode?: string; cardId?: number } = {}) => {
+    const room = manager.getRoom(payload.roomCode ?? joinedCode);
+    if (!room || typeof payload.cardId !== 'number') return;
+    const playerId = room.socketToPlayer.get(socket.id);
+    if (!playerId) return;
+    manager.replaceCard(room, playerId, payload.cardId);
+    broadcast(room);
+  });
+
   socket.on('updateSettings', (
     payload: { roomCode?: string; totalRounds?: number; pickSeconds?: number; voteSeconds?: number } = {},
   ) => {
@@ -231,6 +272,20 @@ io.on('connection', (socket: Socket) => {
     const playerId = room.socketToPlayer.get(socket.id);
     if (!playerId) return;
     manager.chat(room, playerId, payload.text);
+    broadcast(room);
+  });
+
+  // Host adds a bot to the lobby (online play vs bots / testing).
+  socket.on('addBot', (payload: { roomCode?: string } = {}) => {
+    const room = manager.getRoom(payload.roomCode ?? joinedCode);
+    if (!room) return;
+    const playerId = room.socketToPlayer.get(socket.id);
+    if (playerId !== HOST_ID) return; // only host can add bots
+    const ok = manager.addBot(room);
+    if (!ok) {
+      emitError(socket, 'Не вдалось додати бота (кімната заповнена або гра вже почалась)');
+      return;
+    }
     broadcast(room);
   });
 

@@ -17,6 +17,7 @@
     "src/**/*.ts",
     "../MemKarti-cloud/apps/mobile-v2/src/game/lanGame.ts",
     "../MemKarti-cloud/apps/mobile-v2/src/game/deck.ts",
-    "../MemKarti-cloud/apps/mobile-v2/src/game/autoPlay.ts"
+    "../MemKarti-cloud/apps/mobile-v2/src/game/autoPlay.ts",
+    "../MemKarti-cloud/apps/mobile-v2/src/game/soloBots.ts"
   ]
 }

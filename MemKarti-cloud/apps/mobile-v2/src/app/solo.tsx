@@ -8,6 +8,7 @@ import {
   startRound,
   submitPick,
   castVote,
+  replaceBadCard,
   viewForPlayer,
   type LanGameState,
 } from '@/game/lanGame';
@@ -71,6 +72,10 @@ export default function SoloScreen() {
     setState((s) => castVote(s, 'host', submissionId));
   }, []);
 
+  const handleReplace = useCallback((memeCardId: number) => {
+    setState((s) => replaceBadCard(s, 'host', memeCardId));
+  }, []);
+
   const handleNextRound = useCallback(() => {
     setState((s) => startRound(s));
   }, []);
@@ -96,6 +101,7 @@ export default function SoloScreen() {
         onNextRound={handleNextRound}
         onExit={handleExit}
         onRematch={handleRematch}
+        onReplaceCard={handleReplace}
       />
     </View>
   );

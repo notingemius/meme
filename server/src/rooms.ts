@@ -13,6 +13,7 @@ import {
   startRound,
   submitPick,
   castVote,
+  replaceBadCard,
   updateSettings,
   postChatMessage,
   viewForPlayer,
@@ -33,6 +34,9 @@ const CODE_LENGTH = 5;
 
 const MAX_PLAYERS = 8;
 const MIN_PLAYERS_TO_START = 2;
+
+// Bot display names (same pool the app uses for solo-with-bots).
+const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Петро', 'Софія', 'Назар'];
 
 // Remove a room that has been completely empty (everyone offline) for >10 min.
 const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
@@ -69,6 +73,8 @@ export type Room = {
   // Identifies what the current phaseTimer is for (`${phase}:${round}`), so we
   // don't restart the timer on every unrelated broadcast.
   timerKey: string | null;
+  // Pending timer that makes bots take their turn (online rooms with bots).
+  botTimer: ReturnType<typeof setTimeout> | null;
 };
 
 export type JoinResult =
@@ -123,6 +129,7 @@ export class RoomManager {
       emptySince: null,
       phaseTimer: null,
       timerKey: null,
+      botTimer: null,
     };
     this.rooms.set(code, room);
     return { code, playerId: HOST_ID, room };
@@ -204,9 +211,32 @@ export class RoomManager {
     return room;
   }
 
+  // Host adds a bot to the lobby. Bots are members with online=true but no
+  // socket; their ids start with 'bot' so the engine's bot helpers and the
+  // auto-play logic recognise them. Returns false if not allowed.
+  addBot(room: Room): boolean {
+    if (room.state.phase !== 'lobby') return false;
+    if (room.members.size >= MAX_PLAYERS) return false;
+    const usedNames = new Set(room.state.players.map((p) => p.nickname));
+    const name = BOT_NAMES.find((n) => !usedNames.has(n)) ?? `Бот${room.members.size}`;
+    const botId = `bot${++room.seq}`;
+    room.state = addPlayer(room.state, botId, name);
+    room.members.set(botId, {
+      playerId: botId,
+      nickname: name,
+      socketId: null,
+      online: true,
+      ready: true,
+      isHost: false,
+    });
+    return true;
+  }
+
   private touchEmptiness(room: Room): void {
-    const anyOnline = [...room.members.values()].some((m) => m.online);
-    room.emptySince = anyOnline ? null : Date.now();
+    // Only LIVE human sockets keep a room alive — bots (socketId=null) must not
+    // prevent cleanup of an abandoned room.
+    const anyHumanOnline = [...room.members.values()].some((m) => m.socketId !== null);
+    room.emptySince = anyHumanOnline ? null : Date.now();
   }
 
   // --- in-game actions (all delegate to the engine) -------------------------
@@ -232,6 +262,10 @@ export class RoomManager {
 
   vote(room: Room, playerId: string, submissionId: string): void {
     room.state = castVote(room.state, playerId, submissionId);
+  }
+
+  replaceCard(room: Room, playerId: string, cardId: number): void {
+    room.state = replaceBadCard(room.state, playerId, cardId);
   }
 
   chat(room: Room, playerId: string, text: string): void {
@@ -274,9 +308,11 @@ export class RoomManager {
   cleanupEmptyRooms(now = Date.now()): string[] {
     const removed: string[] = [];
     for (const [code, room] of this.rooms.entries()) {
-      const isEmpty = room.members.size === 0 || ![...room.members.values()].some((m) => m.online);
+      // A room is empty when no live human socket is attached (bots don't count).
+      const isEmpty = ![...room.members.values()].some((m) => m.socketId !== null);
       if (isEmpty && room.emptySince && now - room.emptySince > EMPTY_ROOM_TTL_MS) {
         if (room.phaseTimer) clearTimeout(room.phaseTimer);
+        if (room.botTimer) clearTimeout(room.botTimer);
         this.rooms.delete(code);
         removed.push(code);
       }
