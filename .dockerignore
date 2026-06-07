@@ -1,0 +1,16 @@
+# Build context is the repo root (needed so the server image can include the
+# shared engine from MemKarti-cloud/apps/mobile-v2/src/game). Keep the context
+# small: exclude everything heavy/irrelevant to the server image.
+**/node_modules
+**/.git
+**/*.log
+MemKarti-cloud.zip
+MemKarti-cloud/apps/mobile
+MemKarti-cloud/apps/web
+MemKarti-cloud/apps/mobile-v2/android
+MemKarti-cloud/apps/mobile-v2/ios
+MemKarti-cloud/apps/mobile-v2/.expo
+**/dist
+**/.expo
+.agents
+.kiro

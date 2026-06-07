@@ -216,6 +216,8 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
-server.listen(PORT, () => {
-  console.log(`MemKarti server listening on :${PORT}`);
+// Bind 0.0.0.0 so the server is reachable inside containers (Bunny/Docker),
+// not just localhost.
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`MemKarti server listening on 0.0.0.0:${PORT}`);
 });
