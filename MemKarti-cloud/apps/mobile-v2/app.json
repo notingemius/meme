@@ -8,6 +8,13 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
+    "runtimeVersion": "1",
+    "updates": {
+      "enabled": true,
+      "url": "https://mc-8p1wswn5c6.bunny.run/api/manifest",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",

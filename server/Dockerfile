@@ -24,6 +24,11 @@ RUN npm ci
 # Server source.
 COPY server/ ./
 
+# Self-hosted OTA bundle (Expo export). In CI this is filled by the
+# bunny-image workflow before the image build; locally it may be just the
+# placeholder (OTA simply reports "unavailable" then).
+# (Already included by `COPY server/ ./` above — ota-dist lives under server/.)
+
 # Shared game engine (resolved via ../../MemKarti-cloud/... from /app/server/src).
 COPY MemKarti-cloud/apps/mobile-v2/src/game /app/MemKarti-cloud/apps/mobile-v2/src/game
 

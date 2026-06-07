@@ -10,7 +10,7 @@ on:
     branches: [feature/bunny-container]
     paths:
       - 'server/**'
-      - 'MemKarti-cloud/apps/mobile-v2/src/game/**'
+      - 'MemKarti-cloud/apps/mobile-v2/**'
       - '.github/workflows/bunny-image.yml'
   workflow_dispatch:
 
@@ -28,6 +28,27 @@ jobs:
       - name: Lowercase owner
         id: vars
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      # --- Export the JS bundle for self-hosted OTA, baked into the image ----
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Export Expo OTA bundle (android)
+        working-directory: MemKarti-cloud/apps/mobile-v2
+        env:
+          EXPO_NO_TELEMETRY: '1'
+          # Must match the SERVER_URL the app talks to, so /api/manifest is reachable.
+          EXPO_PUBLIC_SERVER_URL: https://mc-8p1wswn5c6.bunny.run
+        run: |
+          npm install --legacy-peer-deps
+          npx expo export --platform android --output-dir dist
+          # Bake the export into the server image build context.
+          rm -rf ../../../server/ota-dist 2>/dev/null || true
+          mkdir -p "$GITHUB_WORKSPACE/server/ota-dist"
+          cp -r dist/* "$GITHUB_WORKSPACE/server/ota-dist/"
+          echo "Exported OTA bundle:" && ls -la "$GITHUB_WORKSPACE/server/ota-dist"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

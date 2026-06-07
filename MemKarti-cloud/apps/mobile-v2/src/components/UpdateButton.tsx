@@ -1,62 +1,71 @@
-// OTA update button. On mount it asks GitHub whether a newer APK exists than
-// the running build. If so, a green "update available" button appears; tapping
-// it downloads the APK (with a progress bar) and opens the Android installer.
-// Shows nothing when the app is already up to date (no clutter).
+// Self-hosted OTA update button (expo-updates -> our Bunny server).
+// JS-only updates arrive over the air, no full APK reinstall:
+//  - On launch the app checks our server and downloads a new bundle in the
+//    background. When one is ready, a green "restart to update" button shows.
+//  - The user can also tap "check for updates" to pull + apply instantly.
+// Shows nothing in dev builds (OTA is release-only).
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
-import { checkForUpdate, downloadAndInstall, type UpdateInfo } from '@/game/updater';
+import { Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import * as Updates from 'expo-updates';
+import { checkAndFetch, applyUpdate, checkFetchApply, otaEnabled } from '@/game/ota';
 
 export function UpdateButton() {
-  const [info, setInfo] = useState<UpdateInfo | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
+  // `useUpdates` reflects expo-updates' own background ON_LOAD checks.
+  const { isUpdatePending } = Updates.useUpdates();
+  const [ready, setReady] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
 
+  // Also kick an explicit check on mount so the "restart" button can appear
+  // within this session (not only after expo-updates' own cycle).
   useEffect(() => {
     let alive = true;
-    checkForUpdate()
-      .then((res) => {
-        if (alive) setInfo(res);
-      })
-      .catch(() => {});
+    checkAndFetch().then((r) => {
+      if (alive && r === 'updated') setReady(true);
+    });
     return () => {
       alive = false;
     };
   }, []);
 
-  const onPress = useCallback(async () => {
-    if (!info?.apkUrl || busy) return;
-    setBusy(true);
-    setProgress(0);
-    try {
-      await downloadAndInstall(info.apkUrl, (f) => setProgress(f));
-      // After the installer opens, the user confirms the system dialog.
-    } catch (e: any) {
-      Alert.alert('Помилка оновлення', e?.message ?? 'Спробуй ще раз пізніше');
-    } finally {
-      setBusy(false);
-    }
-  }, [info, busy]);
+  const showRestart = ready || isUpdatePending;
 
-  // Hide entirely when up to date / unknown.
-  if (!info?.available || !info.apkUrl) return null;
+  const onApply = useCallback(() => {
+    applyUpdate();
+  }, []);
 
-  const pct = Math.round(progress * 100);
-  const sizeLabel = info.sizeMb ? ` · ${info.sizeMb} МБ` : '';
+  const onManualCheck = useCallback(async () => {
+    if (checking) return;
+    setChecking(true);
+    setStatus(null);
+    const r = await checkFetchApply(); // reloads itself if an update was found
+    if (r === 'none') setStatus('✓ У тебе остання версія');
+    else if (r === 'error') setStatus('Не вдалось перевірити');
+    setChecking(false);
+  }, [checking]);
+
+  if (showRestart) {
+    return (
+      <TouchableOpacity onPress={onApply} activeOpacity={0.85} style={[styles.btn, styles.btnReady]}>
+        <Text style={styles.txt}>🔄 Оновлення готове — перезапустити</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  // In dev builds OTA is disabled — render nothing to avoid confusion.
+  if (!otaEnabled) return null;
 
   return (
     <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      disabled={busy}
-      style={[styles.btn, busy && styles.btnBusy]}
+      onPress={onManualCheck}
+      activeOpacity={0.85}
+      disabled={checking}
+      style={[styles.btn, styles.btnCheck]}
     >
-      {busy ? (
-        <>
-          <ActivityIndicator size="small" color="#FFFFFF" />
-          <Text style={styles.txt}>Завантаження… {pct}%</Text>
-        </>
+      {checking ? (
+        <ActivityIndicator size="small" color="#2563EB" />
       ) : (
-        <Text style={styles.txt}>🔄 Доступне оновлення — оновити{sizeLabel}</Text>
+        <Text style={styles.txtCheck}>{status ?? '🔄 Перевірити оновлення'}</Text>
       )}
     </TouchableOpacity>
   );
@@ -69,12 +78,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     alignSelf: 'stretch',
-    backgroundColor: '#10B981',
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
   },
-  btnBusy: { backgroundColor: '#059669' },
+  btnReady: { backgroundColor: '#10B981' },
+  btnCheck: { backgroundColor: '#EEF2FF' },
   txt: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  txtCheck: { color: '#2563EB', fontSize: 14, fontWeight: '600' },
 });

@@ -1,0 +1,4 @@
+# This directory holds the exported Expo JS bundle (`expo export`) baked into
+# the server image for self-hosted OTA updates. In CI the bunny-image workflow
+# fills it with the real export; the placeholder keeps the path present so the
+# Docker COPY succeeds even on local/empty builds (OTA just reports unavailable).

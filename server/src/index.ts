@@ -15,6 +15,7 @@ import { Server, type Socket } from 'socket.io';
 import { RoomManager, HOST_ID, type Room } from './rooms';
 import { botsSubmit, botsVote } from './engine';
 import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, summary, toCsv } from './qa';
+import { manifestHandler, assetHandler, otaAvailable, OTA_INFO } from './ota';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -29,6 +30,15 @@ app.get('/', (_req, res) => {
   res.json({ ok: true, service: 'memkarti-server', rooms: manager.roomCount });
 });
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// --- Self-hosted OTA updates (Expo Updates protocol) ------------------------
+// JS-only updates delivered over the air from this server (no expo.dev / EAS,
+// no full APK reinstall). Bundle is baked into the image at OTA_DIST_DIR.
+app.get('/api/manifest', manifestHandler);
+app.get('/api/assets', assetHandler);
+app.get('/ota/status', (_req, res) => {
+  res.json({ available: otaAvailable(), runtimeVersion: OTA_INFO.runtimeVersion, dir: OTA_INFO.dir });
+});
 
 // --- QA: bad-meme flags (curation feedback from the app) --------------------
 loadFlags();
