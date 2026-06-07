@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { randomNick } from '@/game/nickGen';
 import { ServerStatus } from '@/components/ServerStatus';
+import { UpdateButton } from '@/components/UpdateButton';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -69,6 +70,7 @@ export default function HomeScreen() {
           </View>
 
           <ServerStatus />
+          <UpdateButton />
 
           <View style={styles.cardsRow}>
             <View style={styles.featureCard}>
