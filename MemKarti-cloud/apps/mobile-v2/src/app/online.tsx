@@ -25,13 +25,7 @@ import { LanGameUI } from '@/components/LanGameUI';
 import { Avatar } from '@/components/Avatar';
 import { SettingsChips } from '@/components/SettingsChips';
 import { LobbyChat } from '@/components/LobbyChat';
-
-// Server URL is injected at build time via Expo public env var.
-// Primary server: Bunny Magic Containers (Germany region, no cold-start, low latency).
-// Render (https://memkarti-server.onrender.com) is kept as a backup/origin.
-// Override at build time via EXPO_PUBLIC_SERVER_URL if needed.
-const SERVER_URL =
-  process.env.EXPO_PUBLIC_SERVER_URL || 'https://mc-8p1wswn5c6.bunny.run';
+import { SERVER_URL } from '@/config';
 
 // Lobby-facing player info mirrored from the server (rooms.ts RoomPlayerInfo).
 type RoomPlayerInfo = {

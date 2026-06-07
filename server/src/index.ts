@@ -13,6 +13,7 @@ import express from 'express';
 import cors from 'cors';
 import { Server, type Socket } from 'socket.io';
 import { RoomManager, HOST_ID, type Room } from './rooms';
+import { loadFlags, addFlag, allFlags, summary, toCsv } from './qa';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -27,6 +28,37 @@ app.get('/', (_req, res) => {
   res.json({ ok: true, service: 'memkarti-server', rooms: manager.roomCount });
 });
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// --- QA: bad-meme flags (curation feedback from the app) --------------------
+loadFlags();
+
+app.post('/qa/flag', (req, res) => {
+  const b = req.body ?? {};
+  if (typeof b.memeId !== 'number') {
+    return res.status(400).json({ error: 'memeId (number) is required' });
+  }
+  const rec = addFlag({
+    memeId: b.memeId,
+    title: b.title,
+    imageUrl: b.imageUrl,
+    phase: b.phase,
+    situation: b.situation,
+    by: b.by,
+  });
+  res.json({ ok: true, flag: rec });
+});
+
+// Review collected flags as JSON (count + per-meme summary + raw list).
+app.get('/qa/flags', (_req, res) => {
+  res.json({ count: allFlags().length, summary: summary(), flags: allFlags() });
+});
+
+// Download collected flags as CSV.
+app.get('/qa/flags.csv', (_req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="bad-memes.csv"');
+  res.send(toCsv());
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {

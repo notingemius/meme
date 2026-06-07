@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,12 @@ import {
   Image,
   Animated,
   Easing,
+  Alert,
   StyleSheet,
 } from 'react-native';
 import type { ClientView } from '@/game/lanGame';
+import type { MemeCard } from '@/game/deck';
+import { reportBadMeme } from '@/game/qa';
 import { HandPicker } from './HandPicker';
 import { DropIn, FadeIn } from './RevealAnimation';
 import { Avatar } from './Avatar';
@@ -140,6 +143,7 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
                         </View>
                       </View>
                     )}
+                    <FlagBadMeme meme={sub.memeCard} phase="reveal" situation={view.situation?.text_ua} />
                   </View>
                 </View>
               </DropIn>
@@ -212,6 +216,7 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
                 <View style={styles.bigSubMeta}>
                   {isMine && <Text style={styles.bigSubPlayer}>(твій вибір)</Text>}
                   {voted && <Text style={styles.votedBadge}>✓ Твій голос</Text>}
+                  <FlagBadMeme meme={sub.memeCard} phase="vote" situation={view.situation?.text_ua} />
                 </View>
               </TouchableOpacity>
             );
@@ -285,6 +290,27 @@ function WaitingFor({ view, verb }: { view: ClientView; verb: string }) {
         ))}
       </View>
     </View>
+  );
+}
+
+// QA: пометить мем как «поганий» — улетает на сервер для курації колоди.
+function FlagBadMeme({ meme, phase, situation }: { meme: MemeCard; phase: string; situation?: string }) {
+  const [flagged, setFlagged] = useState(false);
+  return (
+    <TouchableOpacity
+      disabled={flagged}
+      onPress={async () => {
+        const ok = await reportBadMeme(meme, { phase, situation });
+        if (ok) setFlagged(true);
+        else Alert.alert('Не вдалось', 'Сервер недоступний, спробуй пізніше.');
+      }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={[styles.flagBtn, flagged && styles.flagBtnDone]}
+    >
+      <Text style={[styles.flagBtnText, flagged && styles.flagBtnTextDone]}>
+        {flagged ? '✓ позначено як поганий' : '🚩 поганий мем'}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -404,4 +430,14 @@ const styles = StyleSheet.create({
     marginRight: 6, marginBottom: 4,
   },
   voterName: { fontSize: 11, color: '#1E40AF', marginLeft: 4, fontWeight: '600' },
+
+  // QA flag button
+  flagBtn: {
+    alignSelf: 'flex-start', marginTop: 10,
+    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5',
+    borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10,
+  },
+  flagBtnText: { fontSize: 12, color: '#B91C1C', fontWeight: '600' },
+  flagBtnDone: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+  flagBtnTextDone: { color: '#6B7280' },
 });
