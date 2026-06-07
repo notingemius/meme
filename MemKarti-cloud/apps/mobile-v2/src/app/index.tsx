@@ -27,9 +27,9 @@ export default function HomeScreen() {
       Alert.alert('Введи нік', 'Спочатку введи своє імʼя');
       return;
     }
-    // Поки що "Створити кімнату" = соло-режим (одиночна гра проти AI-судді).
-    // Wi-Fi мультиплеер прийде наступним кроком.
-    router.push({ pathname: '/solo', params: { nickname: nickname.trim() } });
+    // Онлайн-кімната через інтернет (сервер на Render). Хост створює кімнату,
+    // отримує код і ділиться ним з друзями.
+    router.push({ pathname: '/online', params: { nickname: nickname.trim(), action: 'create' } });
   };
 
   const handleJoinRoom = () => {
@@ -37,10 +37,10 @@ export default function HomeScreen() {
       Alert.alert('Заповни поля', 'Введи нік і код кімнати');
       return;
     }
-    Alert.alert(
-      'Скоро',
-      'Онлайн-кімнати в розробці. Поки що грай у соло або через Wi-Fi.',
-    );
+    router.push({
+      pathname: '/online',
+      params: { nickname: nickname.trim(), action: 'join', code: roomCode.trim().toUpperCase() },
+    });
   };
 
   return (
@@ -138,6 +138,18 @@ export default function HomeScreen() {
                   style={styles.btnTertiary}
                 >
                   <Text style={styles.btnSecondaryText}>Рядом по Wi-Fi (офлайн)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    if (!nickname.trim()) {
+                      Alert.alert('Введи нік', 'Спочатку введи своє імʼя');
+                      return;
+                    }
+                    router.push({ pathname: '/solo', params: { nickname: nickname.trim() } });
+                  }}
+                  style={styles.btnTertiary}
+                >
+                  <Text style={styles.btnSecondaryText}>Грати з ботами (соло)</Text>
                 </TouchableOpacity>
               </View>
             ) : (

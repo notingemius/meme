@@ -1,0 +1,19 @@
+# Render Blueprint — deploys the MemKarti online multiplayer server.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# The server lives in ./server but imports the shared game engine from
+# ./MemKarti-cloud/apps/mobile-v2/src/game (Render checks out the whole repo,
+# so the relative import resolves at runtime via tsx).
+services:
+  - type: web
+    name: memkarti-server
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

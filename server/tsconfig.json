@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/**/*.ts",
+    "../MemKarti-cloud/apps/mobile-v2/src/game/lanGame.ts",
+    "../MemKarti-cloud/apps/mobile-v2/src/game/deck.ts",
+    "../MemKarti-cloud/apps/mobile-v2/src/game/autoPlay.ts"
+  ]
+}
