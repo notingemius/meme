@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { randomNick } from '@/game/nickGen';
+import { ServerStatus } from '@/components/ServerStatus';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -66,6 +67,8 @@ export default function HomeScreen() {
               у кого найкраще почуття гумору.
             </Text>
           </View>
+
+          <ServerStatus />
 
           <View style={styles.cardsRow}>
             <View style={styles.featureCard}>
