@@ -14,10 +14,18 @@
     "imageNamespace": "notingemius",
     "imageName": "memkarti-server",
     "imageTag": "latest",
-    "imagePullPolicy": 1
+    "imagePullPolicy": 1,
+    "env": [
+      { "name": "QA_DATA_DIR", "value": "/data" }
+    ]
   },
   "endpoint": {
     "displayName": "http",
     "containerPort": 3000
+  },
+  "volume": {
+    "name": "qa-data",
+    "size": 1,
+    "mountPath": "/data"
   }
 }

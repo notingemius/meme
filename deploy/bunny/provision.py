@@ -79,6 +79,11 @@ def container_template(cfg, registry_id, with_endpoint=False):
         "imageTag": c["imageTag"],
         "imagePullPolicy": c["imagePullPolicy"],
     }
+    if c.get("env"):
+        t["environmentVariables"] = c["env"]
+    vol = cfg.get("volume")
+    if vol:
+        t["volumeMounts"] = [{"name": vol["name"], "mountPath": vol["mountPath"]}]
     if with_endpoint:
         t["endpoints"] = [{
             "displayName": cfg["endpoint"]["displayName"],
@@ -93,23 +98,28 @@ def provision(key, cfg):
     print(f"-> registry '{cfg['container']['registryHost']}' resolved to id {registry_id}")
 
     app_id = find_app_by_name(key, name)
+    vol = cfg.get("volume")
+    volumes = [{"name": vol["name"], "size": vol["size"]}] if vol else []
     if app_id:
         print(f"-> app '{name}' already exists ({app_id}); updating it.")
     else:
-        status, data = req("POST", "/mc/apps", key, {
+        body = {
             "name": name,
             "runtimeType": cfg["runtimeType"],
             "autoScaling": cfg["autoScaling"],
             "containerTemplates": [container_template(cfg, registry_id)],
-        })
+        }
+        if volumes:
+            body["volumes"] = volumes
+        status, data = req("POST", "/mc/apps", key, body)
         if status >= 300:
             sys.exit(f"ERROR creating app: {json.dumps(data)}")
         app_id = data["id"]
         print(f"-> created app {app_id}")
 
-    # Lock region + attach endpoint (port mapping) in one update.
+    # Lock region + attach endpoint (port mapping) + volume in one update.
     r = cfg["region"]
-    status, data = req("PATCH", f"/mc/apps/{app_id}", key, {
+    patch = {
         "regionSettings": {
             "allowedRegionIds": [r["id"]],
             "requiredRegionIds": [r["id"]],
@@ -117,10 +127,13 @@ def provision(key, cfg):
             "provisioningType": r["provisioning"],
         },
         "containerTemplates": [container_template(cfg, registry_id, with_endpoint=True)],
-    })
+    }
+    if volumes:
+        patch["volumes"] = volumes
+    status, data = req("PATCH", f"/mc/apps/{app_id}", key, patch)
     if status >= 300:
         sys.exit(f"ERROR configuring app: {json.dumps(data)}")
-    print("-> region locked + endpoint configured")
+    print("-> region locked + endpoint configured" + (" + volume mounted" if volumes else ""))
 
     # Wait for the public endpoint to appear.
     for _ in range(20):
