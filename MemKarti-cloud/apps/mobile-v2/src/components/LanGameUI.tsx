@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,9 @@ import {
   Image,
   Animated,
   Easing,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import type { ClientView } from '@/game/lanGame';
-import type { MemeCard } from '@/game/deck';
 import { reportBadMeme } from '@/game/qa';
 import { HandPicker } from './HandPicker';
 import { DropIn, FadeIn } from './RevealAnimation';
@@ -29,9 +27,11 @@ type Props = {
   onNextRound: () => void;
   onExit: () => void;
   onRematch?: () => void; // только для хоста / соло
+  // Заменить «поганий» мем в руке (фаза pick). Если не передан — кнопка скрыта.
+  onReplaceCard?: (memeCardId: number) => void;
 };
 
-export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound, onExit, onRematch }: Props) {
+export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound, onExit, onRematch, onReplaceCard }: Props) {
   // ============= FINISHED =============
   if (view.phase === 'finished') {
     const sorted = [...view.players].sort((a, b) => b.score - a.score);
@@ -143,7 +143,6 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
                         </View>
                       </View>
                     )}
-                    <FlagBadMeme meme={sub.memeCard} phase="reveal" situation={view.situation?.text_ua} />
                   </View>
                 </View>
               </DropIn>
@@ -216,7 +215,6 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
                 <View style={styles.bigSubMeta}>
                   {isMine && <Text style={styles.bigSubPlayer}>(твій вибір)</Text>}
                   {voted && <Text style={styles.votedBadge}>✓ Твій голос</Text>}
-                  <FlagBadMeme meme={sub.memeCard} phase="vote" situation={view.situation?.text_ua} />
                 </View>
               </TouchableOpacity>
             );
@@ -256,6 +254,16 @@ export function LanGameUI({ view, insets, isHost, onSubmit, onVote, onNextRound,
           hand={view.myHand}
           onPick={(id) => onSubmit(id)}
           disabled={!!view.myPickedSubmissionId}
+          onFlagBad={
+            onReplaceCard
+              ? (card) => {
+                  // Улетает на сервер для курації колоди (best-effort).
+                  reportBadMeme(card, { phase: 'pick', situation: view.situation?.text_ua });
+                  // И сразу меняем карту в руке на нову.
+                  onReplaceCard(card.id);
+                }
+              : undefined
+          }
         />
       </View>
     </View>
@@ -290,27 +298,6 @@ function WaitingFor({ view, verb }: { view: ClientView; verb: string }) {
         ))}
       </View>
     </View>
-  );
-}
-
-// QA: пометить мем как «поганий» — улетает на сервер для курації колоди.
-function FlagBadMeme({ meme, phase, situation }: { meme: MemeCard; phase: string; situation?: string }) {
-  const [flagged, setFlagged] = useState(false);
-  return (
-    <TouchableOpacity
-      disabled={flagged}
-      onPress={async () => {
-        const ok = await reportBadMeme(meme, { phase, situation });
-        if (ok) setFlagged(true);
-        else Alert.alert('Не вдалось', 'Сервер недоступний, спробуй пізніше.');
-      }}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      style={[styles.flagBtn, flagged && styles.flagBtnDone]}
-    >
-      <Text style={[styles.flagBtnText, flagged && styles.flagBtnTextDone]}>
-        {flagged ? '✓ позначено як поганий' : '🚩 поганий мем'}
-      </Text>
-    </TouchableOpacity>
   );
 }
 

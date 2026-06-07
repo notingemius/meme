@@ -19,6 +19,7 @@ import {
   startRound,
   submitPick,
   castVote,
+  replaceBadCard,
   updateSettings,
   postChatMessage,
   viewForPlayer,
@@ -183,6 +184,8 @@ function HostFlow({
                 updateState(submitPick(stateRef.current, peer.id, msg.memeCardId));
               } else if (msg.t === 'vote') {
                 updateState(castVote(stateRef.current, peer.id, msg.submissionId));
+              } else if (msg.t === 'replace') {
+                updateState(replaceBadCard(stateRef.current, peer.id, msg.memeCardId));
               } else if (msg.t === 'chat') {
                 updateState(postChatMessage(stateRef.current, peer.id, msg.text));
               }
@@ -215,6 +218,9 @@ function HostFlow({
   };
   const onHostVote = (subId: string) => {
     updateState(castVote(stateRef.current, 'host', subId));
+  };
+  const onHostReplace = (memeCardId: number) => {
+    updateState(replaceBadCard(stateRef.current, 'host', memeCardId));
   };
   const onStartRound = () => {
     updateState(startRound(stateRef.current));
@@ -424,6 +430,7 @@ function HostFlow({
       onNextRound={onStartRound}
       onExit={onExit}
       onRematch={onRematch}
+      onReplaceCard={onHostReplace}
     />
   );
 }
@@ -517,6 +524,10 @@ function JoinFlow({
   };
   const onVote = (submissionId: string) => {
     const msg: ClientMsg = { t: 'vote', submissionId };
+    peerRef.current?.send(msg);
+  };
+  const onReplace = (memeCardId: number) => {
+    const msg: ClientMsg = { t: 'replace', memeCardId };
     peerRef.current?.send(msg);
   };
   const onChat = (text: string) => {
@@ -674,6 +685,7 @@ function JoinFlow({
       onVote={onVote}
       onNextRound={() => {}}
       onExit={onExit}
+      onReplaceCard={onReplace}
     />
   );
 }

@@ -124,8 +124,10 @@ export default function OnlineScreen() {
 
   const onSubmit = useCallback((cardId: number) => emit('playCard', { cardId }), [emit]);
   const onVote = useCallback((submissionId: string) => emit('castVote', { submissionId }), [emit]);
+  const onReplace = useCallback((cardId: number) => emit('replaceCard', { cardId }), [emit]);
   const onNextRound = useCallback(() => emit('nextRound'), [emit]);
   const onStart = useCallback(() => emit('startGame'), [emit]);
+  const onAddBot = useCallback(() => emit('addBot'), [emit]);
   const onChat = useCallback((text: string) => emit('sendChatMessage', { text }), [emit]);
   const onChangeRounds = useCallback((n: number) => emit('updateSettings', { totalRounds: n }), [emit]);
   const onChangePickSec = useCallback((n: number) => emit('updateSettings', { pickSeconds: n }), [emit]);
@@ -246,14 +248,25 @@ export default function OnlineScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <Avatar id={p.playerId} nickname={p.nickname} size={32} />
                 <Text style={[styles.playerName, { marginLeft: 10, opacity: p.online ? 1 : 0.4 }]}>
-                  {p.nickname}
+                  {p.playerId.startsWith('bot') ? '🤖 ' : ''}{p.nickname}
                 </Text>
-                {!p.online && <Text style={styles.offlineBadge}>офлайн</Text>}
+                {!p.online && !p.playerId.startsWith('bot') && <Text style={styles.offlineBadge}>офлайн</Text>}
               </View>
               {p.playerId === myId && <Text style={styles.youBadge}>ТИ</Text>}
+              {p.playerId.startsWith('bot') && <Text style={styles.botBadge}>БОТ</Text>}
               {p.isHost && <Text style={styles.hostBadge}>ХОСТ</Text>}
             </View>
           ))}
+
+          {isHost && (
+            <TouchableOpacity
+              onPress={onAddBot}
+              disabled={onlinePlayers.length >= 8}
+              style={[styles.btnGhost, { marginTop: 8, opacity: onlinePlayers.length >= 8 ? 0.5 : 1 }]}
+            >
+              <Text style={styles.btnGhostText}>+ Додати бота</Text>
+            </TouchableOpacity>
+          )}
 
           {isHost ? (
             <TouchableOpacity
@@ -262,7 +275,7 @@ export default function OnlineScreen() {
               style={[styles.btnPrimary, { marginTop: 16, opacity: onlinePlayers.length < 2 ? 0.5 : 1 }]}
             >
               <Text style={styles.btnPrimaryText}>
-                {onlinePlayers.length < 2 ? 'Чекаємо ще гравця…' : 'Почати гру'}
+                {onlinePlayers.length < 2 ? 'Чекаємо ще гравця (або додай бота)…' : 'Почати гру'}
               </Text>
             </TouchableOpacity>
           ) : (
@@ -285,6 +298,7 @@ export default function OnlineScreen() {
       onVote={onVote}
       onNextRound={onNextRound}
       onExit={onExit}
+      onReplaceCard={onReplace}
     />
   );
 }
@@ -305,6 +319,9 @@ const styles = StyleSheet.create({
   offlineBadge: { fontSize: 11, color: '#9CA3AF', marginLeft: 8, fontStyle: 'italic' },
   youBadge: { fontSize: 11, fontWeight: '600', color: '#2563EB', letterSpacing: 0.5 },
   hostBadge: { fontSize: 11, fontWeight: '600', color: '#5B21B6', letterSpacing: 0.5, backgroundColor: '#EDE9FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 },
+  botBadge: { fontSize: 11, fontWeight: '600', color: '#92400E', letterSpacing: 0.5, backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 },
+  btnGhost: { backgroundColor: 'transparent', borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: '#2563EB', borderStyle: 'dashed' },
+  btnGhostText: { fontSize: 14, color: '#2563EB', fontWeight: '600' },
   waitHint: { marginTop: 20, fontSize: 14, color: '#6B7280', textAlign: 'center' },
 
   btnPrimary: { backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },

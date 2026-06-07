@@ -17,6 +17,7 @@ export {
   startRound,
   submitPick,
   castVote,
+  replaceBadCard,
   updateSettings,
   postChatMessage,
   viewForPlayer,
@@ -41,3 +42,10 @@ export {
   autoPickHumans,
   autoVoteHumans,
 } from '../../MemKarti-cloud/apps/mobile-v2/src/game/autoPlay';
+
+// Bot helpers (reused from the app's solo-with-bots mode). On the online server
+// the host can add bots to a room; these make every bot pick/vote automatically.
+export {
+  botsSubmit,
+  botsVote,
+} from '../../MemKarti-cloud/apps/mobile-v2/src/game/soloBots';

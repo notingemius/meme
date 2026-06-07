@@ -254,6 +254,50 @@ export function submitPick(
   return newState;
 }
 
+// Заменить «поганий» мем в руке на новый из колоды.
+// Работает только в фазе pick и только до того, как игрок сыграл карту.
+// Возвращает новое состояние + системное сообщение в чат о замене.
+export function replaceBadCard(
+  state: LanGameState,
+  playerId: string,
+  memeCardId: number,
+): LanGameState {
+  if (state.phase !== 'pick') return state;
+  // Нельзя менять после того как уже сыграл карту в этом раунде.
+  if (state.submissions.some((s) => s.playerId === playerId)) return state;
+  const player = state.players.find((p) => p.id === playerId);
+  const hand = state.hands[playerId] ?? [];
+  const idx = hand.findIndex((m) => m.id === memeCardId);
+  if (!player || idx === -1) return state;
+  const badCard = hand[idx];
+
+  // Берём новую карту, которой ещё не было в игре.
+  const used = new Set(state.usedMemeIds);
+  const available = MEME_CARDS.filter((m) => !used.has(m.id));
+  if (available.length === 0) return state; // колода исчерпана — менять не на что
+  const replacement = rnd(available, 1)[0];
+  used.add(replacement.id);
+
+  const newHand = [...hand];
+  newHand[idx] = replacement;
+
+  // Системное сообщение в чат — какой мем заменили (видно всем в кімнаті).
+  const msg: ChatMessage = {
+    id: Math.random().toString(36).slice(2, 10),
+    playerId: 'system',
+    nickname: '🤖 Система',
+    text: `${player.nickname} замінив поганий мем «${badCard.title}» на новий`,
+    ts: Date.now(),
+  };
+
+  return {
+    ...state,
+    hands: { ...state.hands, [playerId]: newHand },
+    usedMemeIds: Array.from(used),
+    chat: [...state.chat, msg].slice(-50),
+  };
+}
+
 // ВОТ ЭТО МЕНЯЛИ: МОЖНО голосовать за свой мем.
 export function castVote(
   state: LanGameState,
@@ -345,7 +389,8 @@ export type ClientMsg =
   | { t: 'hello'; nickname: string }
   | { t: 'submit'; memeCardId: number }
   | { t: 'vote'; submissionId: string }
-  | { t: 'chat'; text: string };
+  | { t: 'chat'; text: string }
+  | { t: 'replace'; memeCardId: number };
 
 export type ServerMsg =
   | { t: 'welcome'; myId: string }

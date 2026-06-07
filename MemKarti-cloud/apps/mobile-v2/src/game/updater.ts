@@ -59,9 +59,23 @@ function sameCommit(a: string, b: string): boolean {
 }
 
 /**
+ * Extracts the built commit SHA from a release body. The CI writes a line:
+ *   - **Commit:** <github.sha>
+ * which is EXACTLY the value embedded as BUILD_SHA at build time. This is the
+ * only reliable source — the rolling git tag ref can lag behind the actual
+ * build, which previously made the update button light up permanently.
+ */
+function commitFromBody(body: unknown): string | null {
+  if (typeof body !== 'string') return null;
+  const m = body.match(/Commit:\**\s*`?([0-9a-f]{7,40})`?/i);
+  return m ? m[1] : null;
+}
+
+/**
  * Returns whether a newer APK than the running build exists.
- * Strategy: read the release for RELEASE_TAG to get the APK asset, and read the
- * git tag ref to learn the exact commit it points to, then compare to BUILD_SHA.
+ * Strategy: read the release for RELEASE_TAG to get the APK asset, then learn
+ * the exact commit the APK was built from — primarily from the release body
+ * ("Commit: <sha>"), falling back to the git tag ref / target_commitish.
  */
 export async function checkForUpdate(): Promise<UpdateInfo> {
   // 1) The release that carries the APK asset.
@@ -73,9 +87,14 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
   );
   if (!apkAsset?.browser_download_url) return NO_UPDATE;
 
-  // 2) The commit the rolling tag currently points at = the built commit.
-  const ref = await getJson(`${API}/git/refs/tags/${RELEASE_TAG}`);
-  const remoteSha: string | null = ref?.object?.sha ?? release.target_commitish ?? null;
+  // 2) The commit the APK was actually built from. The body's "Commit:" line is
+  //    authoritative (= EXPO_PUBLIC_BUILD_SHA = github.sha). Only if it's
+  //    missing do we fall back to the (sometimes stale) tag ref.
+  let remoteSha: string | null = commitFromBody(release.body);
+  if (!remoteSha) {
+    const ref = await getJson(`${API}/git/refs/tags/${RELEASE_TAG}`);
+    remoteSha = ref?.object?.sha ?? release.target_commitish ?? null;
+  }
 
   const info: UpdateInfo = {
     available: false,

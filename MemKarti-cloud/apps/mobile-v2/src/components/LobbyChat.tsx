@@ -45,6 +45,7 @@ export function LobbyChat({ messages, myId, onSend }: Props) {
           style={styles.scroll}
           contentContainerStyle={{ padding: 10 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {messages.length === 0 && (
             <Text style={styles.empty}>Поки порожньо. Напиши перше повідомлення!</Text>
@@ -74,7 +75,8 @@ export function LobbyChat({ messages, myId, onSend }: Props) {
           })}
         </ScrollView>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
           <View style={styles.inputRow}>
             <TextInput
@@ -85,6 +87,7 @@ export function LobbyChat({ messages, myId, onSend }: Props) {
               style={styles.input}
               maxLength={200}
               returnKeyType="send"
+              blurOnSubmit={false}
               onSubmitEditing={handleSend}
             />
             <TouchableOpacity
@@ -102,7 +105,7 @@ export function LobbyChat({ messages, myId, onSend }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { marginTop: 16 },
+  container: { marginTop: 16, marginBottom: 24 },
   label: {
     fontSize: 11, fontWeight: '700', color: '#6B7280',
     letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase',
@@ -127,12 +130,12 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 14, color: '#111827' },
   bubbleTextMine: { color: '#FFFFFF' },
   inputRow: {
-    flexDirection: 'row', alignItems: 'center', padding: 6,
+    flexDirection: 'row', alignItems: 'center', padding: 8,
     borderTopWidth: 1, borderTopColor: '#E5E7EB',
   },
   input: {
-    flex: 1, paddingHorizontal: 10, paddingVertical: 6,
-    fontSize: 14, color: '#111827',
+    flex: 1, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 15, color: '#111827',
   },
   sendBtn: {
     backgroundColor: '#2563EB',

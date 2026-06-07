@@ -15,6 +15,7 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  Alert,
 } from 'react-native';
 import type { MemeCard } from '@/game/deck';
 
@@ -22,13 +23,15 @@ type Props = {
   hand: MemeCard[];
   onPick: (id: number) => void;
   disabled?: boolean;
+  // Пометить мем как «поганий»: улетает на сервер (QA) + карта меняется на нову.
+  onFlagBad?: (card: MemeCard) => void;
 };
 
 const SCREEN_W = Dimensions.get('window').width;
 const CARD_W = 150;
 const CARD_H = 215;
 
-export function HandPicker({ hand, onPick, disabled }: Props) {
+export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [previewId, setPreviewId] = useState<number | null>(null);
 
@@ -40,6 +43,26 @@ export function HandPicker({ hand, onPick, disabled }: Props) {
 
   const selected = selectedId != null ? hand.find((m) => m.id === selectedId) : null;
   const preview = previewId != null ? hand.find((m) => m.id === previewId) : null;
+
+  // Подтверждение замены «поганого» мема.
+  const confirmFlag = (card: MemeCard, afterClose?: () => void) => {
+    if (!onFlagBad) return;
+    Alert.alert(
+      'Поганий мем?',
+      `Замінити «${card.title}» на новий мем з колоди? Ми також позначимо його для перевірки.`,
+      [
+        { text: 'Скасувати', style: 'cancel' },
+        {
+          text: '🚩 Замінити',
+          style: 'destructive',
+          onPress: () => {
+            onFlagBad(card);
+            afterClose?.();
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={{ width: '100%' }}>
@@ -84,6 +107,7 @@ export function HandPicker({ hand, onPick, disabled }: Props) {
             disabled={!!disabled}
             onTap={() => setSelectedId(card.id)}
             onLongPress={() => setPreviewId(card.id)}
+            onFlag={onFlagBad ? () => confirmFlag(card) : undefined}
           />
         ))}
       </ScrollView>
@@ -125,6 +149,14 @@ export function HandPicker({ hand, onPick, disabled }: Props) {
                   </TouchableOpacity>
                 )}
               </View>
+              {!disabled && onFlagBad && (
+                <TouchableOpacity
+                  onPress={() => confirmFlag(preview, () => setPreviewId(null))}
+                  style={styles.modalFlagBtn}
+                >
+                  <Text style={styles.modalFlagText}>🚩 Поганий мем — замінити на новий</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </Pressable>
@@ -141,6 +173,7 @@ function HandCard({
   disabled,
   onTap,
   onLongPress,
+  onFlag,
 }: {
   card: MemeCard;
   index: number;
@@ -149,6 +182,7 @@ function HandCard({
   disabled: boolean;
   onTap: () => void;
   onLongPress: () => void;
+  onFlag?: () => void;
 }) {
   const enter = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(0)).current;
@@ -207,6 +241,15 @@ function HandCard({
           <View style={styles.selectedBadge}>
             <Text style={styles.selectedBadgeText}>✓</Text>
           </View>
+        )}
+        {onFlag && !disabled && (
+          <TouchableOpacity
+            onPress={onFlag}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            style={styles.flagCorner}
+          >
+            <Text style={styles.flagCornerText}>🚩</Text>
+          </TouchableOpacity>
         )}
       </TouchableOpacity>
     </Animated.View>
@@ -390,6 +433,36 @@ const styles = StyleSheet.create({
   modalBtnPrimaryText: {
     color: '#FFFFFF',
     fontWeight: '700',
+    fontSize: 14,
+  },
+  modalFlagBtn: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  modalFlagText: {
+    color: '#B91C1C',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  flagCorner: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(254,242,242,0.95)',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagCornerText: {
     fontSize: 14,
   },
 });
