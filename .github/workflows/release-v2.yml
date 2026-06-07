@@ -35,11 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
-    env:
-      # Baked into the JS bundle so the installed app knows which commit it is,
-      # enabling the in-app "update available" check against GitHub Releases.
-      EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
-
     defaults:
       run:
         working-directory: MemKarti-cloud/apps/mobile-v2
