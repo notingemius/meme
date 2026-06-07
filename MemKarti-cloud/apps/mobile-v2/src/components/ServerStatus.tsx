@@ -1,6 +1,6 @@
-// Live indicator of the online server (Bunny). Pings /health on mount and every
-// 20s, showing a colored dot: green = online (+latency), red = offline,
-// grey = checking. Lets players see if online multiplayer is available.
+// Live indicator of the online server (Bunny). Pings the server on mount and
+// every 20s, showing a colored dot + latency and how many rooms are currently
+// active (server stats). green = online, red = offline, grey = checking.
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
 import { SERVER_URL } from '@/config';
@@ -10,6 +10,7 @@ type Status = 'checking' | 'online' | 'offline';
 export function ServerStatus() {
   const [status, setStatus] = useState<Status>('checking');
   const [ping, setPing] = useState<number | null>(null);
+  const [rooms, setRooms] = useState<number | null>(null);
 
   const check = useCallback(async () => {
     setStatus((s) => (s === 'online' ? s : 'checking'));
@@ -17,11 +18,18 @@ export function ServerStatus() {
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(`${SERVER_URL}/health`, { signal: ctrl.signal });
+      // Root endpoint returns { ok, service, rooms } — gives us live stats.
+      const res = await fetch(`${SERVER_URL}/`, { signal: ctrl.signal });
       clearTimeout(timer);
       if (res.ok) {
         setStatus('online');
         setPing(Date.now() - t0);
+        try {
+          const data = await res.json();
+          setRooms(typeof data?.rooms === 'number' ? data.rooms : null);
+        } catch {
+          setRooms(null);
+        }
       } else {
         setStatus('offline');
       }
@@ -39,7 +47,9 @@ export function ServerStatus() {
   const color = status === 'online' ? '#10B981' : status === 'offline' ? '#EF4444' : '#9CA3AF';
   const label =
     status === 'online'
-      ? `Онлайн-сервер працює${ping != null ? ` · ${ping} мс` : ''}`
+      ? `Онлайн-сервер працює${ping != null ? ` · ${ping} мс` : ''}${
+          rooms != null ? ` · ${rooms} ${roomsWord(rooms)}` : ''
+        }`
       : status === 'offline'
         ? 'Онлайн-сервер недоступний'
         : 'Перевіряю сервер…';
@@ -54,6 +64,15 @@ export function ServerStatus() {
       <Text style={[styles.txt, { color }]}>{label}</Text>
     </TouchableOpacity>
   );
+}
+
+// Ukrainian plural for "кімната" (room): 1 кімната, 2-4 кімнати, 5+ кімнат.
+function roomsWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'кімната';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'кімнати';
+  return 'кімнат';
 }
 
 const styles = StyleSheet.create({
