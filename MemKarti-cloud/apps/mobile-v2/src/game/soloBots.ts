@@ -8,12 +8,13 @@ import {
   submitPick,
   castVote,
   type LanGameState,
+  type DeckData,
 } from './lanGame';
 
 const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Петро', 'Софія', 'Назар'];
 
-export function createSoloWithBots(playerNickname: string, botCount: number = 3): LanGameState {
-  let s = createLobby(playerNickname);
+export function createSoloWithBots(playerNickname: string, botCount: number = 3, deck?: DeckData): LanGameState {
+  let s = createLobby(playerNickname, undefined, deck);
   const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
   for (let i = 0; i < botCount; i++) {
     s = addPlayer(s, `bot${i}`, names[i] ?? `Бот${i + 1}`);

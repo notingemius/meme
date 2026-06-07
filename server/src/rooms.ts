@@ -22,7 +22,9 @@ import {
   type LanGameState,
   type ClientView,
   type GameSettings,
+  type DeckData,
 } from './engine';
+import { getDeck } from './deck-store';
 
 // The creator of the room always maps to engine player id 'host' (same id the
 // engine assigns in createLobby), so host-only actions are easy to authorize.
@@ -109,7 +111,10 @@ export class RoomManager {
   createRoom(nickname: string): { code: string; playerId: string; room: Room } {
     const cleanNick = (nickname || '').trim().slice(0, 20) || 'Гравець';
     const code = this.generateCode();
-    const state = createLobby(cleanNick);
+    // Load the dynamic deck from persistent storage and pass it to the engine.
+    const deckFile = getDeck();
+    const deck: DeckData = { memes: deckFile.memes, situations: deckFile.situations };
+    const state = createLobby(cleanNick, undefined, deck);
     const members = new Map<string, Member>();
     members.set(HOST_ID, {
       playerId: HOST_ID,

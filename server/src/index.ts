@@ -16,6 +16,8 @@ import { RoomManager, HOST_ID, type Room } from './rooms';
 import { botsSubmit, botsVote } from './engine';
 import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, summary, toCsv } from './qa';
 import { manifestHandler, assetHandler, otaAvailable, OTA_INFO } from './ota';
+import { loadDeck, getDeck, addMemes, removeMeme, addSituations, removeSituation, type SituationWithCategory } from './deck-store';
+import type { MemeCard } from './engine';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -38,6 +40,63 @@ app.get('/api/manifest', manifestHandler);
 app.get('/api/assets', assetHandler);
 app.get('/ota/status', (_req, res) => {
   res.json({ available: otaAvailable(), runtimeVersion: OTA_INFO.runtimeVersion, dir: OTA_INFO.dir });
+});
+
+// --- Dynamic deck API -------------------------------------------------------
+// Load deck from /data on startup
+loadDeck();
+
+// Public: fetch the full deck (memes, situations, categories).
+app.get('/api/deck', (_req, res) => {
+  res.json(getDeck());
+});
+
+// Public: fetch memes only.
+app.get('/api/deck/memes', (_req, res) => {
+  res.json({ memes: getDeck().memes });
+});
+
+// Public: fetch situations only.
+app.get('/api/deck/situations', (_req, res) => {
+  res.json({ situations: getDeck().situations, categories: getDeck().categories });
+});
+
+// Admin: add memes.
+app.post('/api/deck/memes', (req, res) => {
+  const body = req.body;
+  if (!Array.isArray(body?.memes)) {
+    return res.status(400).json({ error: 'body.memes (array) required' });
+  }
+  const memes = body.memes as MemeCard[];
+  const deck = addMemes(memes);
+  res.json({ ok: true, totalMemes: deck.memes.length });
+});
+
+// Admin: remove a meme by id.
+app.delete('/api/deck/memes/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+  const deck = removeMeme(id);
+  res.json({ ok: true, totalMemes: deck.memes.length });
+});
+
+// Admin: add situations.
+app.post('/api/deck/situations', (req, res) => {
+  const body = req.body;
+  if (!Array.isArray(body?.situations)) {
+    return res.status(400).json({ error: 'body.situations (array) required' });
+  }
+  const situations = body.situations as SituationWithCategory[];
+  const deck = addSituations(situations);
+  res.json({ ok: true, totalSituations: deck.situations.length });
+});
+
+// Admin: remove a situation by id.
+app.delete('/api/deck/situations/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
+  const deck = removeSituation(id);
+  res.json({ ok: true, totalSituations: deck.situations.length });
 });
 
 // --- QA: bad-meme flags (curation feedback from the app) --------------------

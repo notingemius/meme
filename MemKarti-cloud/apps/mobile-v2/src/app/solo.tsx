@@ -15,6 +15,7 @@ import {
 import { createSoloWithBots, botsSubmit, botsVote } from '@/game/soloBots';
 import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
 import { LanGameUI } from '@/components/LanGameUI';
+import { fetchDeck, getCachedDeck } from '@/game/deckClient';
 
 export default function SoloScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +24,17 @@ export default function SoloScreen() {
   const nickname = (params.nickname || 'Гравець').toString();
 
   const [state, setState] = useState<LanGameState>(() => createSoloWithBots(nickname, 3));
+
+  // Fetch deck from server on mount; re-init game with dynamic deck if available.
+  useEffect(() => {
+    let cancelled = false;
+    fetchDeck().then((deck) => {
+      if (cancelled) return;
+      setState(createSoloWithBots(nickname, 3, deck));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // После выбора игрока — боты делают свой выбор (с небольшой задержкой для драматизма).
   useEffect(() => {
@@ -85,7 +97,7 @@ export default function SoloScreen() {
   }, [router]);
 
   const handleRematch = useCallback(() => {
-    setState(createSoloWithBots(nickname, 3));
+    setState(createSoloWithBots(nickname, 3, getCachedDeck()));
   }, [nickname]);
 
   const view = viewForPlayer(state, 'host');

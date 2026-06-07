@@ -33,6 +33,7 @@ export type {
   ChatMessage,
   GameSettings,
   Phase,
+  DeckData,
 } from '../../MemKarti-cloud/apps/mobile-v2/src/game/lanGame';
 
 // Auto-play helpers: on the online server there are no bots, so these advance
@@ -42,6 +43,10 @@ export {
   autoPickHumans,
   autoVoteHumans,
 } from '../../MemKarti-cloud/apps/mobile-v2/src/game/autoPlay';
+
+// Deck types and data (used by deck-store for seeding and type safety).
+export type { Situation, MemeCard } from '../../MemKarti-cloud/apps/mobile-v2/src/game/deck';
+export { SITUATIONS, MEME_CARDS } from '../../MemKarti-cloud/apps/mobile-v2/src/game/deck';
 
 // Bot helpers (reused from the app's solo-with-bots mode). On the online server
 // the host can add bots to a room; these make every bot pick/vote automatically.

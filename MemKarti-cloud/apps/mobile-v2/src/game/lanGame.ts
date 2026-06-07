@@ -15,6 +15,12 @@
 
 import { SITUATIONS, MEME_CARDS, type Situation, type MemeCard } from './deck';
 
+// Deck data passed as parameter - allows dynamic decks from server.
+export type DeckData = {
+  memes: MemeCard[];
+  situations: Situation[];
+};
+
 export type Phase = 'lobby' | 'pick' | 'vote' | 'reveal' | 'finished';
 
 export type Player = {
@@ -65,6 +71,8 @@ export type LanGameState = {
   usedMemeIds: number[];
   // Чат в лобби — сохраняется хост, рассылается всем
   chat: ChatMessage[];
+  // Dynamic deck data (optional - defaults to hardcoded MEME_CARDS/SITUATIONS)
+  deck?: DeckData;
 };
 
 export type ClientView = {
@@ -112,7 +120,8 @@ function newSubmissionId(): string {
 
 function drawCards(state: LanGameState, count: number): { drawn: MemeCard[]; newUsed: number[] } {
   const used = new Set(state.usedMemeIds);
-  const available = MEME_CARDS.filter((m) => !used.has(m.id));
+  const memePool = state.deck?.memes ?? MEME_CARDS;
+  const available = memePool.filter((m) => !used.has(m.id));
   const drawn = rnd(available, count);
   drawn.forEach((m) => used.add(m.id));
   return { drawn, newUsed: Array.from(used) };
@@ -125,6 +134,7 @@ function drawCards(state: LanGameState, count: number): { drawn: MemeCard[]; new
 export function createLobby(
   hostNickname: string,
   settings: GameSettings = DEFAULT_SETTINGS,
+  deck?: DeckData,
 ): LanGameState {
   return {
     phase: 'lobby',
@@ -140,6 +150,7 @@ export function createLobby(
     roundWinner: null,
     usedMemeIds: [],
     chat: [],
+    deck,
   };
 }
 
@@ -197,7 +208,9 @@ export function startRound(state: LanGameState): LanGameState {
   if (nextRound > state.totalRounds) {
     return { ...state, phase: 'finished' };
   }
-  const sit = rnd(SITUATIONS, 1)[0];
+  const situationPool = state.deck?.situations ?? SITUATIONS;
+  const sit = rnd(situationPool, 1)[0];
+  const memePool = state.deck?.memes ?? MEME_CARDS;
 
   // Раздать/долить до HAND_SIZE каждому игроку
   let used = new Set(state.usedMemeIds);
@@ -206,7 +219,7 @@ export function startRound(state: LanGameState): LanGameState {
     const current = newHands[p.id] ?? [];
     const needed = HAND_SIZE - current.length;
     if (needed > 0) {
-      const available = MEME_CARDS.filter((m) => !used.has(m.id));
+      const available = memePool.filter((m) => !used.has(m.id));
       const refill = rnd(available, Math.min(needed, available.length));
       refill.forEach((m) => used.add(m.id));
       newHands[p.id] = [...current, ...refill];
@@ -273,7 +286,8 @@ export function replaceBadCard(
 
   // Берём новую карту, которой ещё не было в игре.
   const used = new Set(state.usedMemeIds);
-  const available = MEME_CARDS.filter((m) => !used.has(m.id));
+  const memePool = state.deck?.memes ?? MEME_CARDS;
+  const available = memePool.filter((m) => !used.has(m.id));
   if (available.length === 0) return state; // колода исчерпана — менять не на что
   const replacement = rnd(available, 1)[0];
   used.add(replacement.id);
