@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Phase 3: Leaderboard among friends + join by link/QR. Friends leaderboard shows stats of people you have played with. Deep linking enables joining a room by tapping a shared link or scanning a QR code. The app already has scheme 'memkartiv2' in app.json.",
+  "status": "completed",
+  "steps": [
+    "Step 1: Create server/src/leaderboard.ts - tracks which profiles have played together (a 'friends' relationship). Supabase table: friends (profile_a uuid, profile_b uuid, last_played timestamptz, games_together int, UNIQUE(profile_a, profile_b)). When a game finishes, record all pairs of players as friends. Export getFriendsLeaderboard(profileId) that returns friends sorted by games_won desc.",
+    "Step 2: Add server endpoint GET /api/leaderboard/:profileId - returns the leaderboard for a profile (list of friends with their stats, sorted by wins). Add POST /api/friends/record - called at game end to record friend relationships.",
+    "Step 3: Create src/app/leaderboard.tsx - a new screen showing the friends leaderboard. Shows ranked list of friends you have played with: avatar, nickname, games won, win rate. Add navigation button to it from the home screen (src/app/index.tsx).",
+    "Step 4: Implement deep linking for room joins. The app already has scheme 'memkartiv2'. Configure expo-router to handle the link format: memkartiv2://join/{roomCode}. Also handle HTTPS links: https://mc-8p1wswn5c6.bunny.run/join/{roomCode} (add web redirect on server). When the app receives this link, navigate directly to the online screen with action=join and code={roomCode}.",
+    "Step 5: Add server endpoint GET /join/:code - serves a simple HTML page that redirects to the deep link (memkartiv2://join/:code). This lets the HTTPS link work: browser opens -> page has meta redirect/JS redirect to the app scheme. Include app store fallback for users who dont have the app.",
+    "Step 6: Update the online.tsx lobby - add a 'Share link' button that generates and shares the deep link URL (https://mc-8p1wswn5c6.bunny.run/join/{roomCode}). Replace or augment the existing shareCode function. Also add a QR code display option (generate QR from the link using a simple SVG QR library or just show the code prominently with the share link).",
+    "Step 7: Add expo-linking handling in src/app/_layout.tsx - use expo-router's built-in deep link handling. Ensure the linking config maps /join/:code to the online screen with proper params.",
+    "Step 8: Update app.json to add intentFilters for Android deep links (https scheme, host mc-8p1wswn5c6.bunny.run, path /join/*). This requires runtimeVersion bump since it modifies native config."
+  ],
+  "acceptance_criteria": [
+    "GET /api/leaderboard/:id returns friends ranked by wins",
+    "Leaderboard screen shows friends you have played with",
+    "Deep link memkartiv2://join/ABCDE opens the app and joins room ABCDE",
+    "HTTPS link https://mc-8p1wswn5c6.bunny.run/join/ABCDE redirects to the app",
+    "Share button in lobby generates and shares the join link",
+    "Server typecheck passes",
+    "App typecheck passes"
+  ],
+  "verification": [
+    "cd /projects/sandbox/meme/server && npx tsc --noEmit",
+    "cd /projects/sandbox/meme/MemKarti-cloud/apps/mobile-v2 && npx tsc --noEmit",
+    "curl https://localhost:3000/join/TEST (after starting server) returns HTML with redirect"
+  ],
+  "blocked_reason": null,
+  "findings": "All verifications passed: server typecheck, app typecheck, docker build, server starts cleanly with leaderboard module. No QR code library used per spec (link sharing is sufficient). Deep link handling uses expo-router file-based routing (src/app/join/[code].tsx). Intent filters added to app.json but need APK rebuild to take native effect (JS-side handling works via custom scheme immediately)."
+}

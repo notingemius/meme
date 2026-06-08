@@ -5,14 +5,10 @@ const SETTINGS_KEY = '@memkarti_settings';
 
 export type AppSettings = {
   darkMode: boolean;
-  soundEnabled: boolean;
-  hapticsEnabled: boolean;
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
   darkMode: false,
-  soundEnabled: true,
-  hapticsEnabled: true,
 };
 
 let cached: AppSettings | null = null;

@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Phase 1: Dynamic deck from server + expanded meme/situation content with categories. The app fetches memes and situations from the server API instead of using hardcoded deck.ts. Server stores the deck on its persistent volume (/data/deck.json). New memes (single-image emotion memes) and situations are added, organized by categories (films, work, absurd). Fallback to embedded deck.ts if server unreachable.",
+  "status": "completed",
+  "steps": [
+    "Step 1: Create server/src/deck-store.ts - a module that manages the deck on the /data volume. On first start, seed from the current deck.ts data. Store as /data/deck.json with structure: { memes: MemeCard[], situations: Situation[], categories: Category[] } where Category = { id, name_ua, name_ru }. Provide CRUD functions (getDeck, addMemes, removeMemes, addSituations, etc.).",
+    "Step 2: Add server endpoints in server/src/index.ts: GET /api/deck (returns full deck: memes, situations, categories), GET /api/deck/memes (memes only), GET /api/deck/situations (situations only). Admin endpoints: POST /api/deck/memes (add memes), DELETE /api/deck/memes/:id, POST /api/deck/situations, DELETE /api/deck/situations/:id.",
+    "Step 3: Expand the deck content - add 50+ new single-image emotion memes (from imgflip - popular reaction memes that are single images with clear emotions, NOT multi-panel or text-template memes). Add 30+ new situations organized by categories: 'films' (movie-related), 'work' (office/job humor), 'absurd' (surreal situations). Assign category field to each situation.",
+    "Step 4: Modify the game engine to accept deck data as a parameter instead of importing from deck.ts directly. In MemKarti-cloud/apps/mobile-v2/src/game/lanGame.ts, change functions (startRound, drawCards) to accept a deck parameter { memes: MemeCard[], situations: Situation[] }. Keep backward compatibility - if no deck passed, use the hardcoded MEME_CARDS/SITUATIONS from deck.ts as fallback.",
+    "Step 5: Create MemKarti-cloud/apps/mobile-v2/src/game/deckClient.ts - a client module that fetches the deck from SERVER_URL/api/deck on app launch, caches it in memory. Export a useDeck() hook or getDeck() async function. Falls back to deck.ts if fetch fails.",
+    "Step 6: Update the solo screen (src/app/solo.tsx) and online screen (src/app/online.tsx) to fetch the deck on mount and pass it to the engine. For online mode, the server already has the deck - modify server/src/rooms.ts to use the dynamic deck from deck-store.ts instead of the hardcoded import.",
+    "Step 7: Update server/src/engine.ts and server/tsconfig.json to reflect the new deck parameter approach. The server's RoomManager should load the deck from deck-store on room creation and pass it to createLobby/startRound.",
+    "Step 8: Update the Dockerfile and server package.json if any new dependencies are needed. Ensure /data directory is used for deck persistence."
+  ],
+  "acceptance_criteria": [
+    "Server exposes GET /api/deck returning memes, situations, and categories",
+    "App fetches deck from server on launch and uses it for gameplay",
+    "If server is unreachable, app falls back to hardcoded deck.ts",
+    "At least 150 memes total (current 105 + 50 new) in the deck",
+    "At least 150 situations total (current 120 + 30 new) with category tags",
+    "Categories include at minimum: films, work, absurd",
+    "Server typecheck passes (npx tsc --noEmit in server/)",
+    "Game engine still works for solo mode with dynamic deck"
+  ],
+  "verification": [
+    "cd /projects/sandbox/meme/server && npm install && npx tsc --noEmit",
+    "cd /projects/sandbox/meme/MemKarti-cloud/apps/mobile-v2 && npm install --legacy-peer-deps && npx tsc --noEmit",
+    "Start server briefly and curl GET /api/deck to verify response structure"
+  ],
+  "blocked_reason": null,
+  "findings": "Implemented successfully. Server deck-store seeds 160 memes (105 original + 55 new) and 156 situations (120 original + 36 new) with 4 categories (general, films, work, absurd). Docker build passes. Both server and app typechecks pass. The DeckData type is optional in createLobby - backward compatible. Online mode uses dynamic deck from deck-store; solo mode fetches from server and falls back to hardcoded. DATA_DIR env var controls storage path (default /data)."
+}

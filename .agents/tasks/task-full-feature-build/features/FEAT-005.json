@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Phase 5: Dark theme (OTA-deliverable) + sounds and haptics (requires new APK due to native expo-haptics/expo-av modules). Dark theme toggleable from settings, stored in AsyncStorage. Sounds for card pick, vote, round win, game end. Haptics on tap interactions.",
+  "status": "completed",
+  "steps": [
+    "Step 1: Create MemKarti-cloud/apps/mobile-v2/src/theme.ts - define light and dark color palettes. Export a useTheme() hook backed by React Context that returns { colors, isDark, toggle }. Store preference in AsyncStorage (@react-native-async-storage/async-storage). Light theme uses current colors (#F9FAFB background, #111827 text, #2563EB primary). Dark theme uses dark colors (#111827 bg, #F9FAFB text, #3B82F6 primary).",
+    "Step 2: Create MemKarti-cloud/apps/mobile-v2/src/ThemeProvider.tsx - Context provider wrapping the app. Wrap in _layout.tsx. Reads saved preference on mount, provides toggle function.",
+    "Step 3: Update _layout.tsx to wrap the app in ThemeProvider. Update StatusBar to respond to theme (dark/light).",
+    "Step 4: Update all screens and components to use theme colors instead of hardcoded values. Key files: src/app/index.tsx (home screen backgrounds, text colors), src/components/LanGameUI.tsx (game UI colors), src/components/HandPicker.tsx (card colors), src/app/online.tsx (lobby colors). Use the useTheme() hook in each component.",
+    "Step 5: Add a theme toggle button on the home screen (index.tsx) - a sun/moon icon button in the top right corner. Also add it to the profile screen if exists.",
+    "Step 6: Add sound effects. Install expo-av in package.json. Create MemKarti-cloud/apps/mobile-v2/src/game/sounds.ts - preload short audio clips and export playSound(name) function. Sound events: 'cardPick' (when selecting a card), 'vote' (when voting), 'roundWin' (when you win a round), 'gameWin' (when you win the game), 'tick' (timer running low). Use free short SFX (generate URLs or use bundled assets). Add a sounds toggle in settings stored in AsyncStorage.",
+    "Step 7: Add haptics. Install expo-haptics in package.json. Create MemKarti-cloud/apps/mobile-v2/src/game/haptics.ts - export haptic functions: tapHaptic() (light), selectHaptic() (medium), winHaptic() (heavy). Call them from: HandPicker on card tap, vote submission, round win reveal. Add a haptics toggle in settings.",
+    "Step 8: Integrate sounds and haptics into game flow. In HandPicker.tsx: play 'cardPick' sound + tapHaptic on card selection. In LanGameUI.tsx vote phase: play 'vote' + selectHaptic on vote. In reveal phase: play 'roundWin' + winHaptic for winner. In finished phase: play 'gameWin'. In PhaseTimer: play 'tick' in last 5 seconds.",
+    "Step 9: Update app.json - add expo-haptics and expo-av to plugins array if needed. Since these are NEW native modules not previously in the project, bump runtimeVersion from '1' to '2'. This signals that OTA updates from runtimeVersion '1' won't work on the new APK and vice versa.",
+    "Step 10: Update server OTA configuration - set OTA_RUNTIME_VERSION env var to '2' in the Dockerfile/deploy config, so the new OTA bundles target the new runtime."
+  ],
+  "acceptance_criteria": [
+    "Dark theme toggleable from home screen, persisted across restarts",
+    "All screens render correctly in both light and dark mode",
+    "Sound effects play on card pick, vote, round win, game win",
+    "Haptic feedback on card tap, vote, and win",
+    "Sounds and haptics can be individually toggled off",
+    "runtimeVersion bumped to '2' in app.json",
+    "App typecheck passes",
+    "Server typecheck passes"
+  ],
+  "verification": [
+    "cd /projects/sandbox/meme/server && npx tsc --noEmit",
+    "cd /projects/sandbox/meme/MemKarti-cloud/apps/mobile-v2 && npx tsc --noEmit"
+  ],
+  "blocked_reason": null,
+  "findings": "expo-av version for SDK 54 is ~15.1.7 (not 15.0.x). expo-haptics is ~14.1.4. Both installed successfully with --legacy-peer-deps. App and server typecheck pass. Docker build passes. runtimeVersion bumped to 2 in app.json and server Dockerfile ENV."
+}

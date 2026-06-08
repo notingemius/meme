@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Phase 4: Online reliability - reconnection on connection drop + host transfer if host leaves mid-game. Currently when a player disconnects mid-game their socket is just marked offline and auto-play covers them. This feature adds proper reconnection (player gets back into the same room with their state) and host migration (if the host disconnects for >30s, another player becomes host).",
+  "status": "completed",
+  "steps": [
+    "Step 1: Server-side reconnection in server/src/rooms.ts. Add a reconnect mechanism: when a player joins with a roomCode AND a playerId they previously had, re-attach them to their existing Member entry instead of creating a new one. Add a 'rejoinRoom' handler. Store a reconnect token (simple random string) per member that the client saves locally.",
+    "Step 2: Update server/src/index.ts - add 'rejoinRoom' socket event. When a socket connects with { roomCode, playerId, token }, verify the token matches, re-attach the socket, mark online=true, and broadcast updated state. The client receives their full gameState again.",
+    "Step 3: Client-side reconnection in MemKarti-cloud/apps/mobile-v2/src/app/online.tsx. When socket disconnects, store {roomCode, playerId, reconnectToken} in memory (or AsyncStorage for persistence across app kills). On reconnect, emit 'rejoinRoom' instead of 'createRoom'/'joinRoom'. Show a 'Reconnecting...' UI state instead of the error screen.",
+    "Step 4: Host transfer in server/src/rooms.ts. Add a method transferHost(room, newHostId) that changes the host. When the host's socket disconnects, start a 30-second timer. If the host doesn't reconnect within 30s, pick the first online non-bot member and make them host. Broadcast the change. Update all host-related checks to use the dynamic host id (currently hardcoded to 'host' via HOST_ID constant).",
+    "Step 5: Refactor HOST_ID usage. Currently the host is always playerId='host'. For host transfer to work, any player could become host. Add an 'isHost' flag to Member or a 'hostId' field on Room. Update hostAdvance, applySettings, addBot checks to use room.hostId instead of comparing with literal 'host'. This is a significant refactor - needs to maintain backward compatibility (first player created is still 'host' initially).",
+    "Step 6: Client-side host awareness. When the server emits gameState with isHost=true to a player who wasn't previously host, show a toast/notification 'You are now the host!' in online.tsx. The UI already handles isHost dynamically.",
+    "Step 7: Add Socket.IO ping/pong heartbeat configuration. Set pingInterval to 10000 and pingTimeout to 20000 on the server. On the client, configure reconnectionAttempts to 10 and reconnectionDelay to 1000. Show connection quality indicator in the game UI.",
+    "Step 8: Handle edge cases: if ALL players disconnect, keep the room alive for 10 min (already implemented). If the game is in 'lobby' phase and host transfers, the new host should be able to start the game. If game is mid-round, the new host should be able to advance rounds."
+  ],
+  "acceptance_criteria": [
+    "Player can disconnect and reconnect to the same room within 10 minutes",
+    "On reconnect, player sees their hand and current game state",
+    "If host disconnects for >30s, another online player becomes host",
+    "New host can advance rounds and use all host controls",
+    "UI shows 'Reconnecting...' state instead of error on temporary disconnect",
+    "Server typecheck passes",
+    "App typecheck passes"
+  ],
+  "verification": [
+    "cd /projects/sandbox/meme/server && npx tsc --noEmit",
+    "cd /projects/sandbox/meme/MemKarti-cloud/apps/mobile-v2 && npx tsc --noEmit"
+  ],
+  "blocked_reason": null,
+  "findings": "Server and client typechecks pass clean. Server starts without errors. No test files per user request. The HOST_ID constant is still exported from rooms.ts for backward compat but room.hostId is used for all host-power checks. The broadcast callback pattern (setOnBroadcast) allows deferred timers in rooms.ts to trigger broadcasts without circular imports."
+}

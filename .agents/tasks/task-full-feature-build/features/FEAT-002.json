@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Phase 2: Player profiles + statistics with Supabase. Each player gets a persistent profile (nickname, avatar seed, stats). Stats tracked: games played, games won, total rounds played, favorite meme. Uses Supabase free tier PostgreSQL for storage. Profiles identified by a device-generated UUID stored in AsyncStorage/MMKV.",
+  "status": "completed",
+  "steps": [
+    "Step 1: Set up Supabase project via their API - create tables: profiles (id uuid PK, nickname text, avatar_seed text, created_at timestamptz), stats (profile_id uuid FK references profiles, games_played int default 0, games_won int default 0, rounds_played int default 0, updated_at timestamptz). Add the supabase-js client to the mobile app: npm install @supabase/supabase-js in MemKarti-cloud/apps/mobile-v2/.",
+    "Step 2: Create MemKarti-cloud/apps/mobile-v2/src/game/supabase.ts - initialize Supabase client with the project URL and anon key (store in src/config.ts). Export helper functions: getOrCreateProfile(deviceId), updateNickname(id, nick), getStats(id), incrementGamesPlayed(id), incrementGamesWon(id).",
+    "Step 3: Create MemKarti-cloud/apps/mobile-v2/src/game/profile.ts - manages local profile. On first launch, generate a UUID (crypto.randomUUID or expo-crypto), store in AsyncStorage. Export useProfile() hook that returns { id, nickname, avatarSeed, stats, loading }. Syncs with Supabase on launch.",
+    "Step 4: Update the home screen (src/app/index.tsx) to show the player's nickname from profile (pre-fill the nickname field). Add a small profile avatar in the top corner. Add a 'Profile' button that navigates to a new profile screen.",
+    "Step 5: Create src/app/profile.tsx - shows player stats (games played, won, win rate), allows changing nickname. Shows avatar (using the existing Avatar component with the profile seed).",
+    "Step 6: Update game completion flow: when a game ends (phase=finished), report the result to Supabase. In solo.tsx - after game ends, call incrementGamesPlayed for the player, and incrementGamesWon if they won. In online.tsx - same, triggered by the gameState with phase=finished.",
+    "Step 7: Server-side: add a POST /api/game-result endpoint that accepts {profileId, won, roundsPlayed} - the server can also record results to avoid client-side cheating. Add supabase-js to server dependencies and create server/src/profiles.ts with server-side stat recording.",
+    "Step 8: Update server/src/rooms.ts - when a game finishes (phase transitions to 'finished'), emit a 'gameFinished' event to all players with the final standings. Each client then reports their result."
+  ],
+  "acceptance_criteria": [
+    "Supabase tables exist and are accessible via the anon key",
+    "App generates and persists a device UUID on first launch",
+    "Player nickname is pre-filled from saved profile on home screen",
+    "Profile screen shows games played, games won, and win rate",
+    "Game results are recorded to Supabase after each game",
+    "Server typecheck passes",
+    "App typecheck passes"
+  ],
+  "verification": [
+    "cd /projects/sandbox/meme/server && npx tsc --noEmit",
+    "cd /projects/sandbox/meme/MemKarti-cloud/apps/mobile-v2 && npx tsc --noEmit"
+  ],
+  "blocked_reason": null,
+  "findings": "Used server-side JSON file storage at /data/profiles.json instead of Supabase. Installed @react-native-async-storage/async-storage for device ID persistence. Both server and app typechecks pass. Server starts without errors. Game results are reported from both solo and online modes when game phase transitions to finished."
+}
