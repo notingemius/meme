@@ -27,6 +27,7 @@ import { SettingsChips } from '@/components/SettingsChips';
 import { LobbyChat } from '@/components/LobbyChat';
 import { SERVER_URL } from '@/config';
 import { getCachedProfile, reportGameResult } from '@/game/profile';
+import { useTheme } from '@/ThemeProvider';
 
 // Lobby-facing player info mirrored from the server (rooms.ts RoomPlayerInfo).
 type RoomPlayerInfo = {
@@ -41,6 +42,7 @@ type RoomPlayerInfo = {
 export default function OnlineScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const params = useLocalSearchParams<{ nickname?: string; action?: string; code?: string }>();
   const nickname = (params.nickname ?? '').toString();
   const action = (params.action ?? 'create').toString(); // 'create' | 'join'
@@ -201,15 +203,15 @@ export default function OnlineScreen() {
   // --- render: error --------------------------------------------------------
   if (status === 'error' && !view) {
     return (
-      <View style={[styles.errBox, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.errTitle}>Немає звʼязку з сервером</Text>
-        <Text style={styles.errText}>
+      <View style={[styles.errBox, { paddingTop: insets.top + 24, backgroundColor: colors.errorBg }]}>
+        <Text style={[styles.errTitle, { color: colors.error }]}>Немає звʼязку з сервером</Text>
+        <Text style={[styles.errText, { color: colors.error }]}>
           {err ?? 'Сервер недоступний.'}
           {'\n\n'}На безкоштовному тарифі сервер «засинає» — перша спроба після
           паузи може тривати 30–50 секунд. Спробуй ще раз.
         </Text>
-        <TouchableOpacity onPress={onExit} style={styles.btnSecondary}>
-          <Text style={styles.btnSecondaryText}>← На головну</Text>
+        <TouchableOpacity onPress={onExit} style={[styles.btnSecondary, { backgroundColor: colors.btnSecondaryBg }]}>
+          <Text style={[styles.btnSecondaryText, { color: colors.primaryText }]}>← На головну</Text>
         </TouchableOpacity>
       </View>
     );
@@ -218,16 +220,16 @@ export default function OnlineScreen() {
   // --- render: reconnecting ------------------------------------------------
   if (status === 'reconnecting') {
     return (
-      <View style={[styles.center, { paddingTop: insets.top + 24 }]}>
+      <View style={[styles.center, { paddingTop: insets.top + 24, backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color="#F59E0B" />
-        <Text style={{ marginTop: 16, color: '#92400E', textAlign: 'center', paddingHorizontal: 32, fontWeight: '600' }}>
+        <Text style={{ marginTop: 16, color: colors.warning, textAlign: 'center', paddingHorizontal: 32, fontWeight: '600' }}>
           Перепідключення...
         </Text>
-        <Text style={{ marginTop: 8, color: '#6B7280', textAlign: 'center', paddingHorizontal: 32, fontSize: 13 }}>
+        <Text style={{ marginTop: 8, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 32, fontSize: 13 }}>
           Зʼєднання втрачено, намагаємось повернутись до гри
         </Text>
-        <TouchableOpacity onPress={onExit} style={[styles.btnSecondary, { marginTop: 24 }]}>
-          <Text style={styles.btnSecondaryText}>← Вийти</Text>
+        <TouchableOpacity onPress={onExit} style={[styles.btnSecondary, { marginTop: 24, backgroundColor: colors.btnSecondaryBg }]}>
+          <Text style={[styles.btnSecondaryText, { color: colors.primaryText }]}>← Вийти</Text>
         </TouchableOpacity>
       </View>
     );
@@ -236,17 +238,17 @@ export default function OnlineScreen() {
   // --- render: connecting / waiting for first state -------------------------
   if (!view) {
     return (
-      <View style={[styles.center, { paddingTop: insets.top + 24 }]}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={{ marginTop: 16, color: '#6B7280', textAlign: 'center', paddingHorizontal: 32 }}>
+      <View style={[styles.center, { paddingTop: insets.top + 24, backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.textSecondary, textAlign: 'center', paddingHorizontal: 32 }}>
           {action === 'join'
             ? `Підключаємось до кімнати ${joinCode}…`
             : 'Створюємо кімнату…'}
           {'\n'}(перший запуск сервера може зайняти ~30с)
         </Text>
-        {err && <Text style={styles.errInlineText}>{err}</Text>}
-        <TouchableOpacity onPress={onExit} style={[styles.btnSecondary, { marginTop: 24 }]}>
-          <Text style={styles.btnSecondaryText}>← Скасувати</Text>
+        {err && <Text style={[styles.errInlineText, { color: colors.error }]}>{err}</Text>}
+        <TouchableOpacity onPress={onExit} style={[styles.btnSecondary, { marginTop: 24, backgroundColor: colors.btnSecondaryBg }]}>
+          <Text style={[styles.btnSecondaryText, { color: colors.primaryText }]}>← Скасувати</Text>
         </TouchableOpacity>
       </View>
     );
@@ -258,23 +260,23 @@ export default function OnlineScreen() {
       playerId: p.id, nickname: p.nickname, score: p.score, online: true, ready: false, isHost: p.id === 'host',
     }));
     return (
-      <View style={{ flex: 1, backgroundColor: '#F9FAFB', paddingTop: insets.top + 16 }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: insets.top + 16 }}>
         <ScrollView contentContainerStyle={{ padding: 20 }}>
           <TouchableOpacity onPress={onExit}>
-            <Text style={{ color: '#2563EB', fontSize: 14, fontWeight: '600' }}>← Вийти</Text>
+            <Text style={{ color: colors.primaryText, fontSize: 14, fontWeight: '600' }}>← Вийти</Text>
           </TouchableOpacity>
 
-          <Text style={styles.title}>{isHost ? 'Твоя кімната' : 'В лобі'}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{isHost ? 'Твоя кімната' : 'В лобі'}</Text>
 
           {/* Room code — share with friends */}
-          <TouchableOpacity onPress={shareCode} activeOpacity={0.8} style={styles.codeBox}>
+          <TouchableOpacity onPress={shareCode} activeOpacity={0.8} style={[styles.codeBox, { backgroundColor: colors.primary }]}>
             <Text style={styles.codeLabel}>КОД КІМНАТИ (тапни щоб поділитись)</Text>
             <Text style={styles.codeValue}>{roomCode ?? '…'}</Text>
           </TouchableOpacity>
 
           {isHost && (
             <>
-              <Text style={styles.sectionLabel}>НАЛАШТУВАННЯ ГРИ</Text>
+              <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>НАЛАШТУВАННЯ ГРИ</Text>
               <SettingsChips
                 label="Раунди"
                 emoji="🎯"
@@ -312,17 +314,17 @@ export default function OnlineScreen() {
             </>
           )}
 
-          <Text style={styles.sectionLabel}>ГРАВЦІ ({onlinePlayers.length})</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ГРАВЦІ ({onlinePlayers.length})</Text>
           {onlinePlayers.map((p) => (
-            <View key={p.playerId} style={styles.playerRow}>
+            <View key={p.playerId} style={[styles.playerRow, { backgroundColor: colors.cardBg, borderColor: colors.border }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <Avatar id={p.playerId} nickname={p.nickname} size={32} />
-                <Text style={[styles.playerName, { marginLeft: 10, opacity: p.online ? 1 : 0.4 }]}>
+                <Text style={[styles.playerName, { marginLeft: 10, opacity: p.online ? 1 : 0.4, color: colors.text }]}>
                   {p.playerId.startsWith('bot') ? '🤖 ' : ''}{p.nickname}
                 </Text>
-                {!p.online && !p.playerId.startsWith('bot') && <Text style={styles.offlineBadge}>офлайн</Text>}
+                {!p.online && !p.playerId.startsWith('bot') && <Text style={[styles.offlineBadge, { color: colors.textMuted }]}>офлайн</Text>}
               </View>
-              {p.playerId === myId && <Text style={styles.youBadge}>ТИ</Text>}
+              {p.playerId === myId && <Text style={[styles.youBadge, { color: colors.primary }]}>ТИ</Text>}
               {p.playerId.startsWith('bot') && <Text style={styles.botBadge}>БОТ</Text>}
               {p.isHost && <Text style={styles.hostBadge}>ХОСТ</Text>}
             </View>
@@ -332,9 +334,9 @@ export default function OnlineScreen() {
             <TouchableOpacity
               onPress={onAddBot}
               disabled={onlinePlayers.length >= 8}
-              style={[styles.btnGhost, { marginTop: 8, opacity: onlinePlayers.length >= 8 ? 0.5 : 1 }]}
+              style={[styles.btnGhost, { marginTop: 8, opacity: onlinePlayers.length >= 8 ? 0.5 : 1, borderColor: colors.primary }]}
             >
-              <Text style={styles.btnGhostText}>+ Додати бота</Text>
+              <Text style={[styles.btnGhostText, { color: colors.primaryText }]}>+ Додати бота</Text>
             </TouchableOpacity>
           )}
 
@@ -342,14 +344,14 @@ export default function OnlineScreen() {
             <TouchableOpacity
               onPress={onStart}
               disabled={onlinePlayers.length < 2}
-              style={[styles.btnPrimary, { marginTop: 16, opacity: onlinePlayers.length < 2 ? 0.5 : 1 }]}
+              style={[styles.btnPrimary, { marginTop: 16, opacity: onlinePlayers.length < 2 ? 0.5 : 1, backgroundColor: colors.primary }]}
             >
               <Text style={styles.btnPrimaryText}>
                 {onlinePlayers.length < 2 ? 'Чекаємо ще гравця (або додай бота)…' : 'Почати гру'}
               </Text>
             </TouchableOpacity>
           ) : (
-            <Text style={styles.waitHint}>Очікуємо, поки хост почне гру…</Text>
+            <Text style={[styles.waitHint, { color: colors.textSecondary }]}>Очікуємо, поки хост почне гру…</Text>
           )}
 
           <LobbyChat messages={view.chat} myId={view.myId} onSend={onChat} />
@@ -374,34 +376,34 @@ export default function OnlineScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 28, fontWeight: '700', color: '#111827', marginTop: 12 },
-  sectionLabel: { fontSize: 11, fontWeight: '600', color: '#6B7280', letterSpacing: 1, marginTop: 24, marginBottom: 12 },
+  title: { fontSize: 28, fontWeight: '700', marginTop: 12 },
+  sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginTop: 24, marginBottom: 12 },
 
-  codeBox: { marginTop: 16, padding: 20, borderRadius: 14, backgroundColor: '#2563EB', alignItems: 'center' },
+  codeBox: { marginTop: 16, padding: 20, borderRadius: 14, alignItems: 'center' },
   codeLabel: { color: '#BFDBFE', fontSize: 11, fontWeight: '600', letterSpacing: 1, textAlign: 'center' },
   codeValue: { color: '#FFFFFF', fontSize: 36, fontWeight: '700', marginTop: 8, letterSpacing: 6 },
 
   playerRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 14, borderRadius: 10, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 8,
+    padding: 14, borderRadius: 10, borderWidth: 1, marginBottom: 8,
   },
-  playerName: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  offlineBadge: { fontSize: 11, color: '#9CA3AF', marginLeft: 8, fontStyle: 'italic' },
-  youBadge: { fontSize: 11, fontWeight: '600', color: '#2563EB', letterSpacing: 0.5 },
+  playerName: { fontSize: 15, fontWeight: '600' },
+  offlineBadge: { fontSize: 11, marginLeft: 8, fontStyle: 'italic' },
+  youBadge: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5 },
   hostBadge: { fontSize: 11, fontWeight: '600', color: '#5B21B6', letterSpacing: 0.5, backgroundColor: '#EDE9FE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 },
   botBadge: { fontSize: 11, fontWeight: '600', color: '#92400E', letterSpacing: 0.5, backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 8 },
-  btnGhost: { backgroundColor: 'transparent', borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: '#2563EB', borderStyle: 'dashed' },
-  btnGhostText: { fontSize: 14, color: '#2563EB', fontWeight: '600' },
-  waitHint: { marginTop: 20, fontSize: 14, color: '#6B7280', textAlign: 'center' },
+  btnGhost: { backgroundColor: 'transparent', borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderStyle: 'dashed' },
+  btnGhostText: { fontSize: 14, fontWeight: '600' },
+  waitHint: { marginTop: 20, fontSize: 14, textAlign: 'center' },
 
-  btnPrimary: { backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
+  btnPrimary: { borderRadius: 10, paddingVertical: 16, alignItems: 'center' },
   btnPrimaryText: { fontSize: 15, color: '#FFFFFF', fontWeight: '600' },
-  btnSecondary: { backgroundColor: '#EFF6FF', borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginHorizontal: 20 },
-  btnSecondaryText: { fontSize: 15, color: '#2563EB', fontWeight: '600' },
+  btnSecondary: { borderRadius: 10, paddingVertical: 16, alignItems: 'center', marginHorizontal: 20 },
+  btnSecondaryText: { fontSize: 15, fontWeight: '600' },
 
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' },
-  errBox: { flex: 1, padding: 20, backgroundColor: '#FEF2F2' },
-  errTitle: { fontSize: 18, fontWeight: '700', color: '#B91C1C', marginBottom: 8 },
-  errText: { fontSize: 13, color: '#7F1D1D', marginBottom: 24, lineHeight: 19 },
-  errInlineText: { fontSize: 13, color: '#B91C1C', marginTop: 16, textAlign: 'center', paddingHorizontal: 24 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errBox: { flex: 1, padding: 20 },
+  errTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  errText: { fontSize: 13, marginBottom: 24, lineHeight: 19 },
+  errInlineText: { fontSize: 13, marginTop: 16, textAlign: 'center', paddingHorizontal: 24 },
 });

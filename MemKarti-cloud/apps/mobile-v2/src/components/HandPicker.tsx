@@ -1,8 +1,8 @@
 // Горизонтальный список карт + двушаговый выбор.
 // 1. Скроллишь горизонтально все 8 карт (каждая полностью видна).
-// 2. Тапаешь карту → она подсвечивается синей рамкой + чуть поднимается + увеличивается.
-// 3. Появляется панель сверху: «Зіграти цю карту? [ЗІГРАТИ]» — подтверждаешь.
-// Без подтверждения — можешь поменять выбор тапнув другую карту.
+// 2. Тапаешь карту -> она подсвечивается синей рамкой + чуть поднимается + увеличивается.
+// 3. Появляется панель сверху: «Зіграти цю карту? [ЗІГРАТИ]» - подтверждаешь.
+// Без подтверждения - можешь поменять выбор тапнув другую карту.
 import { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -18,6 +18,9 @@ import {
   Alert,
 } from 'react-native';
 import type { MemeCard } from '@/game/deck';
+import { useTheme } from '@/ThemeProvider';
+import { tapHaptic } from '@/game/haptics';
+import { playSound } from '@/game/sounds';
 
 type Props = {
   hand: MemeCard[];
@@ -34,6 +37,7 @@ const CARD_H = 215;
 export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [previewId, setPreviewId] = useState<number | null>(null);
+  const { colors, isDark } = useTheme();
 
   // Reset selection if hand changes (new round)
   useEffect(() => {
@@ -64,20 +68,26 @@ export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
     );
   };
 
+  const handleCardTap = (id: number) => {
+    tapHaptic();
+    playSound('cardPick');
+    setSelectedId(id);
+  };
+
   return (
     <View style={{ width: '100%' }}>
       {/* Sticky banner with confirm button */}
       {selected && !disabled && (
-        <View style={styles.confirmBar}>
+        <View style={[styles.confirmBar, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.confirmLabel}>ОБРАНО:</Text>
-            <Text style={styles.confirmName} numberOfLines={1}>
+            <Text style={[styles.confirmLabel, { color: colors.primary }]}>ОБРАНО:</Text>
+            <Text style={[styles.confirmName, { color: colors.text }]} numberOfLines={1}>
               {selected.title}
             </Text>
           </View>
           <TouchableOpacity
             onPress={() => onPick(selected.id)}
-            style={styles.confirmBtn}
+            style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
           >
             <Text style={styles.confirmBtnText}>ЗІГРАТИ →</Text>
           </TouchableOpacity>
@@ -85,8 +95,8 @@ export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
       )}
 
       {disabled && (
-        <View style={[styles.confirmBar, styles.confirmBarDisabled]}>
-          <Text style={styles.disabledMsg}>Чекаємо інших гравців…</Text>
+        <View style={[styles.confirmBar, styles.confirmBarDisabled, { backgroundColor: isDark ? colors.surface : '#F3F4F6', borderColor: colors.border }]}>
+          <Text style={[styles.disabledMsg, { color: colors.textSecondary }]}>Чекаємо інших гравців…</Text>
         </View>
       )}
 
@@ -105,7 +115,7 @@ export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
             total={hand.length}
             isSelected={selectedId === card.id}
             disabled={!!disabled}
-            onTap={() => setSelectedId(card.id)}
+            onTap={() => handleCardTap(card.id)}
             onLongPress={() => setPreviewId(card.id)}
             onFlag={onFlagBad ? () => confirmFlag(card) : undefined}
           />
@@ -113,7 +123,7 @@ export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
       </ScrollView>
 
       <View style={styles.hint}>
-        <Text style={styles.hintText}>
+        <Text style={[styles.hintText, { color: colors.textMuted }]}>
           ← Гортай для перегляду · Тап = обрати · Утримай = збільшити
         </Text>
       </View>
@@ -127,23 +137,23 @@ export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
       >
         <Pressable style={styles.modalBg} onPress={() => setPreviewId(null)}>
           {preview && (
-            <View style={styles.modalCard}>
+            <View style={[styles.modalCard, { backgroundColor: colors.surface }]}>
               <Image source={{ uri: preview.image_url }} style={styles.modalImg} />
-              <Text style={styles.modalTitle}>{preview.title}</Text>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>{preview.title}</Text>
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   onPress={() => setPreviewId(null)}
-                  style={[styles.modalBtn, styles.modalBtnGhost]}
+                  style={[styles.modalBtn, { backgroundColor: isDark ? colors.background : '#F3F4F6' }]}
                 >
-                  <Text style={styles.modalBtnGhostText}>Закрити</Text>
+                  <Text style={[styles.modalBtnGhostText, { color: colors.text }]}>Закрити</Text>
                 </TouchableOpacity>
                 {!disabled && (
                   <TouchableOpacity
                     onPress={() => {
-                      setSelectedId(preview.id);
+                      handleCardTap(preview.id);
                       setPreviewId(null);
                     }}
-                    style={[styles.modalBtn, styles.modalBtnPrimary]}
+                    style={[styles.modalBtn, { backgroundColor: colors.primary }]}
                   >
                     <Text style={styles.modalBtnPrimaryText}>Обрати ✓</Text>
                   </TouchableOpacity>
@@ -152,9 +162,9 @@ export function HandPicker({ hand, onPick, disabled, onFlagBad }: Props) {
               {!disabled && onFlagBad && (
                 <TouchableOpacity
                   onPress={() => confirmFlag(preview, () => setPreviewId(null))}
-                  style={styles.modalFlagBtn}
+                  style={[styles.modalFlagBtn, { backgroundColor: colors.errorBg, borderColor: '#FCA5A5' }]}
                 >
-                  <Text style={styles.modalFlagText}>🚩 Поганий мем — замінити на новий</Text>
+                  <Text style={[styles.modalFlagText, { color: colors.error }]}>🚩 Поганий мем — замінити на новий</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -184,6 +194,7 @@ function HandCard({
   onLongPress: () => void;
   onFlag?: () => void;
 }) {
+  const { colors } = useTheme();
   const enter = useRef(new Animated.Value(0)).current;
   const lift = useRef(new Animated.Value(0)).current;
 
@@ -227,7 +238,8 @@ function HandCard({
         disabled={disabled}
         style={[
           styles.card,
-          isSelected && styles.cardSelected,
+          { backgroundColor: colors.cardBg, borderColor: colors.border },
+          isSelected && { borderColor: colors.primary, borderWidth: 3 },
           disabled && !isSelected && styles.cardDimmed,
         ]}
       >
@@ -238,7 +250,7 @@ function HandCard({
           </Text>
         </View>
         {isSelected && (
-          <View style={styles.selectedBadge}>
+          <View style={[styles.selectedBadge, { backgroundColor: colors.primary }]}>
             <Text style={styles.selectedBadgeText}>✓</Text>
           </View>
         )}
@@ -268,22 +280,13 @@ const styles = StyleSheet.create({
     width: CARD_W,
     height: CARD_H,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
     overflow: 'hidden',
     elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 3 },
-  },
-  cardSelected: {
-    borderColor: '#2563EB',
-    borderWidth: 3,
-    elevation: 10,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
   },
   cardDimmed: {
     opacity: 0.45,
@@ -313,7 +316,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -326,8 +328,6 @@ const styles = StyleSheet.create({
   confirmBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
     borderWidth: 1.5,
     borderRadius: 12,
     padding: 12,
@@ -335,30 +335,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   confirmBarDisabled: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
     justifyContent: 'center',
   },
   disabledMsg: {
-    color: '#6B7280',
     fontSize: 14,
     fontStyle: 'italic',
     textAlign: 'center',
   },
   confirmLabel: {
     fontSize: 10,
-    color: '#2563EB',
     fontWeight: '700',
     letterSpacing: 1,
   },
   confirmName: {
     fontSize: 14,
-    color: '#111827',
     fontWeight: '600',
     marginTop: 2,
   },
   confirmBtn: {
-    backgroundColor: '#2563EB',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
@@ -376,7 +370,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   hintText: {
-    color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '500',
   },
@@ -389,7 +382,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 16,
     width: '100%',
@@ -404,7 +396,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
     textAlign: 'center',
     marginTop: 14,
   },
@@ -419,16 +410,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  modalBtnGhost: {
-    backgroundColor: '#F3F4F6',
-  },
   modalBtnGhostText: {
-    color: '#374151',
     fontWeight: '600',
     fontSize: 14,
-  },
-  modalBtnPrimary: {
-    backgroundColor: '#2563EB',
   },
   modalBtnPrimaryText: {
     color: '#FFFFFF',
@@ -440,12 +424,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#FCA5A5',
   },
   modalFlagText: {
-    color: '#B91C1C',
     fontWeight: '600',
     fontSize: 13,
   },

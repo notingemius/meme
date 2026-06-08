@@ -33,6 +33,8 @@ COPY server/ ./
 COPY MemKarti-cloud/apps/mobile-v2/src/game /app/MemKarti-cloud/apps/mobile-v2/src/game
 
 ENV NODE_ENV=production
+# OTA runtime version - must match app.json runtimeVersion for OTA updates.
+ENV OTA_RUNTIME_VERSION=2
 # PORT is provided by the host (Bunny/Render); default 3000 for local runs.
 ENV PORT=3000
 EXPOSE 3000
