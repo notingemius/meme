@@ -24,6 +24,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { MEME_CARDS, type MemeCard } from '@/game/deck';
 import { reportBadMeme, fetchFlaggedIds, unflagMeme } from '@/game/qa';
+import { SERVER_URL } from '@/config';
 
 const { width } = Dimensions.get('window');
 const COLS = 2;
@@ -35,15 +36,38 @@ export default function MemesReviewScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
+  const [allMemes, setAllMemes] = useState<MemeCard[]>(MEME_CARDS);
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [onlyFlagged, setOnlyFlagged] = useState(false);
   const [busy, setBusy] = useState<Set<number>>(new Set());
   const [preview, setPreview] = useState<MemeCard | null>(null);
 
-  // Load the already-flagged set from the server on mount.
+  // Load memes from server (dynamic deck) + flagged ids on mount.
   useEffect(() => {
     (async () => {
+      // Fetch dynamic deck from server (with fallback to embedded MEME_CARDS)
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(`${SERVER_URL}/api/deck`, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.memes) && data.memes.length > 0) {
+            // Ensure every meme has an id (server memes without id get a temp one)
+            const memes: MemeCard[] = data.memes.map((m: any, i: number) => ({
+              id: m.id ?? 10000 + i,
+              title: m.title ?? '',
+              image_url: m.image_url ?? '',
+            }));
+            setAllMemes(memes);
+          }
+        }
+      } catch {
+        // Fallback to embedded MEME_CARDS (already set as default)
+      }
+      // Fetch flagged ids
       const ids = await fetchFlaggedIds();
       setFlagged(ids);
       setLoading(false);
@@ -83,8 +107,8 @@ export default function MemesReviewScreen() {
   );
 
   const data = useMemo(
-    () => (onlyFlagged ? MEME_CARDS.filter((m) => flagged.has(m.id)) : MEME_CARDS),
-    [onlyFlagged, flagged],
+    () => (onlyFlagged ? allMemes.filter((m) => flagged.has(m.id)) : allMemes),
+    [onlyFlagged, flagged, allMemes],
   );
 
   return (
@@ -96,7 +120,7 @@ export default function MemesReviewScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={styles.back}>‹ Назад</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Усі меми ({MEME_CARDS.length})</Text>
+        <Text style={styles.title}>Усі меми ({allMemes.length})</Text>
         <View style={{ width: 60 }} />
       </View>
 
