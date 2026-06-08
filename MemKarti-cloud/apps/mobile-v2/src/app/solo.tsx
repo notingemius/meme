@@ -1,6 +1,6 @@
 // Соло-режим: ты + 3 бота, полный игровой цикл с голосованием.
 // Использует тот же движок (lanGame) и UI (LanGameUI) что и LAN multiplayer.
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -16,6 +16,7 @@ import { createSoloWithBots, botsSubmit, botsVote } from '@/game/soloBots';
 import { autoPickHumans, autoVoteHumans } from '@/game/autoPlay';
 import { LanGameUI } from '@/components/LanGameUI';
 import { fetchDeck, getCachedDeck } from '@/game/deckClient';
+import { getCachedProfile, reportGameResult } from '@/game/profile';
 
 export default function SoloScreen() {
   const insets = useSafeAreaInsets();
@@ -76,6 +77,20 @@ export default function SoloScreen() {
     return () => clearTimeout(t);
   }, [state.phase, state.votes, state.round, state.voteSeconds]);
 
+  // Report game result when game finishes.
+  const reportedRef = useRef(false);
+  useEffect(() => {
+    if (state.phase !== 'finished' || reportedRef.current) return;
+    reportedRef.current = true;
+    getCachedProfile().then((profile) => {
+      if (!profile) return;
+      const myPlayer = state.players.find((p) => p.id === 'host');
+      const topScore = Math.max(...state.players.map((p) => p.score));
+      const won = myPlayer ? myPlayer.score === topScore : false;
+      reportGameResult(profile.id, won, state.round);
+    });
+  }, [state.phase, state.players, state.round]);
+
   const handleSubmit = useCallback((memeCardId: number) => {
     setState((s) => submitPick(s, 'host', memeCardId));
   }, []);
@@ -97,6 +112,7 @@ export default function SoloScreen() {
   }, [router]);
 
   const handleRematch = useCallback(() => {
+    reportedRef.current = false;
     setState(createSoloWithBots(nickname, 3, getCachedDeck()));
   }, [nickname]);
 

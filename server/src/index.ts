@@ -17,6 +17,7 @@ import { botsSubmit, botsVote } from './engine';
 import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, summary, toCsv } from './qa';
 import { manifestHandler, assetHandler, otaAvailable, OTA_INFO } from './ota';
 import { loadDeck, getDeck, addMemes, removeMeme, addSituations, removeSituation, type SituationWithCategory } from './deck-store';
+import { loadProfiles, getOrCreateProfile, getProfileById, updateNickname, recordGameResult } from './profiles';
 import type { MemeCard } from './engine';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -45,6 +46,8 @@ app.get('/ota/status', (_req, res) => {
 // --- Dynamic deck API -------------------------------------------------------
 // Load deck from /data on startup
 loadDeck();
+// Load profiles from /data on startup
+loadProfiles();
 
 // Public: fetch the full deck (memes, situations, categories).
 app.get('/api/deck', (_req, res) => {
@@ -97,6 +100,47 @@ app.delete('/api/deck/situations/:id', (req, res) => {
   if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
   const deck = removeSituation(id);
   res.json({ ok: true, totalSituations: deck.situations.length });
+});
+
+// --- Player profiles API ----------------------------------------------------
+// POST /api/profiles - create or get profile by deviceId
+app.post('/api/profiles', (req, res) => {
+  const { deviceId, nickname } = req.body ?? {};
+  if (!deviceId || typeof deviceId !== 'string') {
+    return res.status(400).json({ error: 'deviceId (string) is required' });
+  }
+  const profile = getOrCreateProfile(deviceId, nickname);
+  res.json(profile);
+});
+
+// GET /api/profiles/:id - get profile by id
+app.get('/api/profiles/:id', (req, res) => {
+  const profile = getProfileById(req.params.id);
+  if (!profile) return res.status(404).json({ error: 'profile not found' });
+  res.json(profile);
+});
+
+// PATCH /api/profiles/:id - update nickname
+app.patch('/api/profiles/:id', (req, res) => {
+  const { nickname } = req.body ?? {};
+  if (!nickname || typeof nickname !== 'string') {
+    return res.status(400).json({ error: 'nickname (string) is required' });
+  }
+  const profile = updateNickname(req.params.id, nickname);
+  if (!profile) return res.status(404).json({ error: 'profile not found' });
+  res.json(profile);
+});
+
+// POST /api/profiles/:id/game-result - record game result
+app.post('/api/profiles/:id/game-result', (req, res) => {
+  const { won, roundsPlayed } = req.body ?? {};
+  if (typeof won !== 'boolean') {
+    return res.status(400).json({ error: 'won (boolean) is required' });
+  }
+  const rounds = typeof roundsPlayed === 'number' ? roundsPlayed : 0;
+  const profile = recordGameResult(req.params.id, won, rounds);
+  if (!profile) return res.status(404).json({ error: 'profile not found' });
+  res.json(profile);
 });
 
 // --- QA: bad-meme flags (curation feedback from the app) --------------------

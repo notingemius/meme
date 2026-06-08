@@ -26,6 +26,7 @@ import { Avatar } from '@/components/Avatar';
 import { SettingsChips } from '@/components/SettingsChips';
 import { LobbyChat } from '@/components/LobbyChat';
 import { SERVER_URL } from '@/config';
+import { getCachedProfile, reportGameResult } from '@/game/profile';
 
 // Lobby-facing player info mirrored from the server (rooms.ts RoomPlayerInfo).
 type RoomPlayerInfo = {
@@ -113,6 +114,20 @@ export default function OnlineScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- report game result when finished ------------------------------------
+  const reportedOnlineRef = useRef(false);
+  useEffect(() => {
+    if (!view || view.phase !== 'finished' || reportedOnlineRef.current) return;
+    reportedOnlineRef.current = true;
+    getCachedProfile().then((profile) => {
+      if (!profile || !myId) return;
+      const myPlayer = view.players.find((p) => p.id === myId);
+      const topScore = Math.max(...view.players.map((p) => p.score));
+      const won = myPlayer ? myPlayer.score === topScore : false;
+      reportGameResult(profile.id, won, view.round);
+    });
+  }, [view, myId]);
 
   // --- actions --------------------------------------------------------------
   const emit = useCallback(

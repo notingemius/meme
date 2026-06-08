@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { useRouter } from 'expo-router';
 import { randomNick } from '@/game/nickGen';
 import { ServerStatus } from '@/components/ServerStatus';
 import { UpdateButton } from '@/components/UpdateButton';
+import { useProfile, syncProfile } from '@/game/profile';
+import { Avatar } from '@/components/Avatar';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -23,12 +25,22 @@ export default function HomeScreen() {
   const [nickname, setNickname] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'menu' | 'join'>('menu');
+  const { profile } = useProfile();
+
+  // Pre-fill nickname from saved profile
+  useEffect(() => {
+    if (profile && !nickname) {
+      setNickname(profile.nickname);
+    }
+  }, [profile]);
 
   const handleCreateRoom = () => {
     if (!nickname.trim()) {
       Alert.alert('Введи нік', 'Спочатку введи своє імʼя');
       return;
     }
+    // Sync nickname to profile before creating room
+    syncProfile(nickname.trim());
     // Онлайн-кімната через інтернет (сервер на Render). Хост створює кімнату,
     // отримує код і ділиться ним з друзями.
     router.push({ pathname: '/online', params: { nickname: nickname.trim(), action: 'create' } });
@@ -39,6 +51,7 @@ export default function HomeScreen() {
       Alert.alert('Заповни поля', 'Введи нік і код кімнати');
       return;
     }
+    syncProfile(nickname.trim());
     router.push({
       pathname: '/online',
       params: { nickname: nickname.trim(), action: 'join', code: roomCode.trim().toUpperCase() },
@@ -62,11 +75,25 @@ export default function HomeScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.heroBlock}>
-            <Text style={styles.heroTitle}>МемКарти 🃏 ✨</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.heroTitle}>МемКарти 🃏 ✨</Text>
+              {profile && (
+                <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileBtn}>
+                  <Avatar id={profile.avatarSeed} nickname={profile.nickname} size={36} />
+                </TouchableOpacity>
+              )}
+            </View>
             <Text style={styles.heroSubtitle}>
               Картки з ситуаціями та найсмішніші меми. Збирай друзів і дізнайся,
               у кого найкраще почуття гумору.
             </Text>
+            {profile && profile.stats.gamesPlayed > 0 && (
+              <TouchableOpacity onPress={() => router.push('/profile')} style={styles.miniStats}>
+                <Text style={styles.miniStatsText}>
+                  {profile.stats.gamesPlayed} ігор | {profile.stats.gamesWon} перемог
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <ServerStatus />
@@ -151,6 +178,7 @@ export default function HomeScreen() {
                       Alert.alert('Введи нік', 'Спочатку введи своє імʼя');
                       return;
                     }
+                    syncProfile(nickname.trim());
                     router.push({ pathname: '/solo', params: { nickname: nickname.trim() } });
                   }}
                   style={styles.btnTertiary}
@@ -162,6 +190,12 @@ export default function HomeScreen() {
                   style={styles.btnReview}
                 >
                   <Text style={styles.btnReviewText}>🚩 Переглянути всі меми (QA)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push('/profile')}
+                  style={styles.btnProfile}
+                >
+                  <Text style={styles.btnProfileText}>👤 Мій профіль</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -252,6 +286,15 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FCA5A5',
   },
   btnReviewText: { fontSize: 15, color: '#B91C1C', fontWeight: '600' },
+  btnProfile: {
+    backgroundColor: '#F0FDF4', borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center', marginTop: 12,
+    borderWidth: 1, borderColor: '#86EFAC',
+  },
+  btnProfileText: { fontSize: 15, color: '#166534', fontWeight: '600' },
+  profileBtn: { padding: 4 },
+  miniStats: { marginTop: 8, paddingVertical: 4, paddingHorizontal: 8 },
+  miniStatsText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
 
   howLabel: { fontSize: 12, color: '#6B7280', marginBottom: 12, letterSpacing: 0.5, fontWeight: '500' },
 });
