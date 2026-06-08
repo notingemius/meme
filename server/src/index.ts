@@ -18,6 +18,7 @@ import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, sum
 import { manifestHandler, assetHandler, otaAvailable, OTA_INFO } from './ota';
 import { loadDeck, getDeck, addMemes, removeMeme, addSituations, removeSituation, type SituationWithCategory } from './deck-store';
 import { loadProfiles, getOrCreateProfile, getProfileById, updateNickname, recordGameResult } from './profiles';
+import { loadLeaderboard, recordFriends, getFriendsLeaderboard } from './leaderboard';
 import type { MemeCard } from './engine';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -48,6 +49,8 @@ app.get('/ota/status', (_req, res) => {
 loadDeck();
 // Load profiles from /data on startup
 loadProfiles();
+// Load leaderboard from /data on startup
+loadLeaderboard();
 
 // Public: fetch the full deck (memes, situations, categories).
 app.get('/api/deck', (_req, res) => {
@@ -141,6 +144,60 @@ app.post('/api/profiles/:id/game-result', (req, res) => {
   const profile = recordGameResult(req.params.id, won, rounds);
   if (!profile) return res.status(404).json({ error: 'profile not found' });
   res.json(profile);
+});
+
+// --- Leaderboard (friends) API -----------------------------------------------
+// GET /api/leaderboard/:profileId - returns friends sorted by gamesWon
+app.get('/api/leaderboard/:profileId', (req, res) => {
+  const entries = getFriendsLeaderboard(req.params.profileId);
+  res.json({ leaderboard: entries });
+});
+
+// POST /api/friends/record - called at game end to record friend relationships
+app.post('/api/friends/record', (req, res) => {
+  const { profileIds } = req.body ?? {};
+  if (!Array.isArray(profileIds) || profileIds.length < 2) {
+    return res.status(400).json({ error: 'profileIds (array of at least 2) is required' });
+  }
+  recordFriends(profileIds);
+  res.json({ ok: true });
+});
+
+// --- Deep link redirect (join room by HTTPS link) ----------------------------
+// GET /join/:code - serves HTML page that redirects to the app deep link
+app.get('/join/:code', (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const deepLink = `memkartiv2://join/${code}`;
+  const html = `<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Приєднатись до гри - МемКарти</title>
+  <meta http-equiv="refresh" content="0;url=${deepLink}"/>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#F9FAFB;text-align:center;padding:20px}
+    .card{background:#fff;border-radius:16px;padding:32px;box-shadow:0 4px 12px rgba(0,0,0,.08);max-width:360px}
+    h1{font-size:24px;margin:0 0 8px}
+    .code{font-size:36px;font-weight:700;letter-spacing:4px;color:#2563EB;margin:16px 0}
+    p{color:#6B7280;font-size:14px;line-height:1.5}
+    a{display:inline-block;margin-top:16px;background:#2563EB;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>МемКарти 🃏</h1>
+    <p>Тебе запросили до гри!</p>
+    <div class="code">${code}</div>
+    <p>Якщо додаток не відкрився автоматично:</p>
+    <a href="${deepLink}">Відкрити МемКарти</a>
+    <p style="margin-top:16px;font-size:12px;color:#9CA3AF">Немає додатку? Попроси друга надіслати APK або завантаж з GitHub.</p>
+  </div>
+  <script>window.location.href="${deepLink}";</script>
+</body>
+</html>`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
 });
 
 // --- QA: bad-meme flags (curation feedback from the app) --------------------

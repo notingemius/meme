@@ -157,7 +157,7 @@ export default function OnlineScreen() {
   const shareCode = useCallback(() => {
     if (!roomCode) return;
     Share.share({
-      message: `Грай зі мною в МемКарти! Код кімнати: ${roomCode}`,
+      message: `Грай зі мною в МемКарти! Приєднуйся: ${SERVER_URL}/join/${roomCode}`,
     }).catch(() => {});
   }, [roomCode]);
 

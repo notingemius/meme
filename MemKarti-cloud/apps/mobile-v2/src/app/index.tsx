@@ -197,6 +197,12 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.btnProfileText}>👤 Мій профіль</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => router.push('/leaderboard')}
+                  style={styles.btnLeaderboard}
+                >
+                  <Text style={styles.btnLeaderboardText}>🏆 Таблиця друзiв</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={{ marginTop: 20, gap: 10 }}>
@@ -292,6 +298,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#86EFAC',
   },
   btnProfileText: { fontSize: 15, color: '#166534', fontWeight: '600' },
+  btnLeaderboard: {
+    backgroundColor: '#FEF9C3', borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center', marginTop: 12,
+    borderWidth: 1, borderColor: '#FDE047',
+  },
+  btnLeaderboardText: { fontSize: 15, color: '#854D0E', fontWeight: '600' },
   profileBtn: { padding: 4 },
   miniStats: { marginTop: 8, paddingVertical: 4, paddingHorizontal: 8 },
   miniStatsText: { fontSize: 12, color: '#6B7280', fontWeight: '500' },
