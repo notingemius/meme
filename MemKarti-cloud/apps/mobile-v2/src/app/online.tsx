@@ -53,13 +53,21 @@ export default function OnlineScreen() {
   const [view, setView] = useState<ClientView | null>(null);
   const [players, setPlayers] = useState<RoomPlayerInfo[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [status, setStatus] = useState<'connecting' | 'connected' | 'reconnecting' | 'error'>('connecting');
+
+  // Reconnection credentials stored in memory.
+  const reconnectRef = useRef<{ roomCode: string; playerId: string; token: string } | null>(null);
+  // Whether we have already received the first gameState (so we show reconnecting instead of error).
+  const hadConnectionRef = useRef(false);
 
   // --- socket lifecycle -----------------------------------------------------
   useEffect(() => {
     const socket = io(SERVER_URL, {
       transports: ['websocket'],
       reconnection: true,
+      reconnectionAttempts: 15,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       timeout: 60000, // tolerate Render free-tier cold start (~30-50s)
     });
     socketRef.current = socket;
@@ -67,6 +75,12 @@ export default function OnlineScreen() {
     socket.on('connect', () => {
       setStatus('connected');
       setErr(null);
+      // If we have reconnect credentials, try to rejoin instead of creating/joining.
+      const creds = reconnectRef.current;
+      if (creds) {
+        socket.emit('rejoinRoom', { roomCode: creds.roomCode, playerId: creds.playerId, token: creds.token });
+        return;
+      }
       if (action === 'join') {
         socket.emit('joinRoom', { roomCode: joinCode, nickname });
       } else {
@@ -75,16 +89,27 @@ export default function OnlineScreen() {
     });
 
     socket.on('connect_error', (e: Error) => {
-      setStatus('error');
-      setErr(`Не вдалось підключитись до сервера. ${e?.message ?? ''}`.trim());
+      if (hadConnectionRef.current) {
+        setStatus('reconnecting');
+      } else {
+        setStatus('error');
+        setErr(`Не вдалось підключитись до сервера. ${e?.message ?? ''}`.trim());
+      }
     });
 
-    socket.on('roomCreated', ({ roomCode: rc, playerId }: { roomCode: string; playerId: string }) => {
+    socket.on('roomCreated', ({ roomCode: rc, playerId, token }: { roomCode: string; playerId: string; token: string }) => {
       setRoomCode(rc);
       setMyId(playerId);
+      reconnectRef.current = { roomCode: rc, playerId, token };
     });
 
-    socket.on('roomJoined', ({ roomCode: rc, playerId }: { roomCode: string; playerId: string }) => {
+    socket.on('roomJoined', ({ roomCode: rc, playerId, token }: { roomCode: string; playerId: string; token: string }) => {
+      setRoomCode(rc);
+      setMyId(playerId);
+      reconnectRef.current = { roomCode: rc, playerId, token };
+    });
+
+    socket.on('roomRejoined', ({ roomCode: rc, playerId }: { roomCode: string; playerId: string }) => {
       setRoomCode(rc);
       setMyId(playerId);
     });
@@ -92,6 +117,7 @@ export default function OnlineScreen() {
     socket.on(
       'gameState',
       (payload: { roomCode: string; view: ClientView; players: RoomPlayerInfo[]; isHost: boolean }) => {
+        hadConnectionRef.current = true;
         setView(payload.view);
         setPlayers(payload.players);
         setIsHost(payload.isHost);
@@ -104,11 +130,22 @@ export default function OnlineScreen() {
     });
 
     socket.on('disconnect', () => {
-      setStatus('connecting');
+      if (hadConnectionRef.current) {
+        setStatus('reconnecting');
+      } else {
+        setStatus('connecting');
+      }
+    });
+
+    // Socket.IO gives up after reconnectionAttempts.
+    socket.io.on('reconnect_failed', () => {
+      setStatus('error');
+      setErr('Не вдалось перепідключитись. Перевір з\'єднання та спробуй ще раз.');
     });
 
     return () => {
       socket.removeAllListeners();
+      socket.io.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
     };
@@ -173,6 +210,24 @@ export default function OnlineScreen() {
         </Text>
         <TouchableOpacity onPress={onExit} style={styles.btnSecondary}>
           <Text style={styles.btnSecondaryText}>← На головну</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // --- render: reconnecting ------------------------------------------------
+  if (status === 'reconnecting') {
+    return (
+      <View style={[styles.center, { paddingTop: insets.top + 24 }]}>
+        <ActivityIndicator size="large" color="#F59E0B" />
+        <Text style={{ marginTop: 16, color: '#92400E', textAlign: 'center', paddingHorizontal: 32, fontWeight: '600' }}>
+          Перепідключення...
+        </Text>
+        <Text style={{ marginTop: 8, color: '#6B7280', textAlign: 'center', paddingHorizontal: 32, fontSize: 13 }}>
+          Зʼєднання втрачено, намагаємось повернутись до гри
+        </Text>
+        <TouchableOpacity onPress={onExit} style={[styles.btnSecondary, { marginTop: 24 }]}>
+          <Text style={styles.btnSecondaryText}>← Вийти</Text>
         </TouchableOpacity>
       </View>
     );

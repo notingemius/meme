@@ -12,7 +12,7 @@ import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import { Server, type Socket } from 'socket.io';
-import { RoomManager, HOST_ID, type Room } from './rooms';
+import { RoomManager, type Room } from './rooms';
 import { botsSubmit, botsVote } from './engine';
 import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, summary, toCsv } from './qa';
 import { manifestHandler, assetHandler, otaAvailable, OTA_INFO } from './ota';
@@ -251,6 +251,8 @@ app.get('/qa/flags.csv', (_req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
+  pingInterval: 10000,
+  pingTimeout: 20000,
 });
 
 // ----------------------------------------------------------------------------
@@ -266,7 +268,7 @@ function broadcast(room: Room): void {
       roomCode: room.code,
       view: manager.viewFor(room, member.playerId),
       players,
-      isHost: member.isHost,
+      isHost: member.playerId === room.hostId,
     });
   }
   // Lobby-facing member list (online/ready/score) for any UI that wants it.
@@ -337,6 +339,10 @@ function emitError(socket: Socket, message: string): void {
   socket.emit('errorMessage', { message });
 }
 
+// Register broadcast callback so deferred room timers (lobby grace, host transfer)
+// can trigger broadcasts without a socket event.
+manager.setOnBroadcast(broadcast);
+
 // ----------------------------------------------------------------------------
 // Socket.IO connection handling
 // ----------------------------------------------------------------------------
@@ -345,11 +351,11 @@ io.on('connection', (socket: Socket) => {
   let joinedCode: string | null = null;
 
   socket.on('createRoom', (payload: { nickname?: string } = {}) => {
-    const { code, playerId, room } = manager.createRoom(payload.nickname ?? '');
+    const { code, playerId, room, token } = manager.createRoom(payload.nickname ?? '');
     joinedCode = code;
     socket.join(code);
     manager.attachSocket(code, playerId, socket.id);
-    socket.emit('roomCreated', { roomCode: code, playerId });
+    socket.emit('roomCreated', { roomCode: code, playerId, token });
     broadcast(room);
   });
 
@@ -362,7 +368,26 @@ io.on('connection', (socket: Socket) => {
     joinedCode = res.room.code;
     socket.join(res.room.code);
     manager.attachSocket(res.room.code, res.playerId, socket.id);
-    socket.emit('roomJoined', { roomCode: res.room.code, playerId: res.playerId });
+    socket.emit('roomJoined', { roomCode: res.room.code, playerId: res.playerId, token: res.token });
+    broadcast(res.room);
+  });
+
+  socket.on('rejoinRoom', (payload: { roomCode?: string; playerId?: string; token?: string } = {}) => {
+    const code = payload.roomCode ?? '';
+    const playerId = payload.playerId ?? '';
+    const token = payload.token ?? '';
+    if (!code || !playerId || !token) {
+      emitError(socket, 'Невірні дані для перепідключення');
+      return;
+    }
+    const res = manager.rejoinRoom(code, playerId, token, socket.id);
+    if (!res.ok) {
+      emitError(socket, res.error);
+      return;
+    }
+    joinedCode = res.room.code;
+    socket.join(res.room.code);
+    socket.emit('roomRejoined', { roomCode: res.room.code, playerId });
     broadcast(res.room);
   });
 
@@ -444,7 +469,7 @@ io.on('connection', (socket: Socket) => {
     const room = manager.getRoom(payload.roomCode ?? joinedCode);
     if (!room) return;
     const playerId = room.socketToPlayer.get(socket.id);
-    if (playerId !== HOST_ID) return; // only host changes settings
+    if (playerId !== room.hostId) return; // only host changes settings
     manager.applySettings(room, {
       totalRounds: payload.totalRounds,
       pickSeconds: payload.pickSeconds,
@@ -467,7 +492,7 @@ io.on('connection', (socket: Socket) => {
     const room = manager.getRoom(payload.roomCode ?? joinedCode);
     if (!room) return;
     const playerId = room.socketToPlayer.get(socket.id);
-    if (playerId !== HOST_ID) return; // only host can add bots
+    if (playerId !== room.hostId) return; // only host can add bots
     const ok = manager.addBot(room);
     if (!ok) {
       emitError(socket, 'Не вдалось додати бота (кімната заповнена або гра вже почалась)');

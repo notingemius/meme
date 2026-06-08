@@ -6,6 +6,7 @@
 // engine; this file only manages rooms, codes, membership and lifecycle.
 // ============================================================================
 
+import crypto from 'node:crypto';
 import {
   createLobby,
   addPlayer,
@@ -43,6 +44,12 @@ const BOT_NAMES = ['Богдан', 'Олена', 'Тарас', 'Маша', 'Пе
 // Remove a room that has been completely empty (everyone offline) for >10 min.
 const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
 
+// Grace period before removing a disconnected lobby player.
+const LOBBY_DISCONNECT_GRACE_MS = 60 * 1000;
+
+// Time before host powers are transferred to another player after host disconnects.
+const HOST_TRANSFER_DELAY_MS = 30 * 1000;
+
 export type Member = {
   playerId: string;
   nickname: string;
@@ -50,6 +57,7 @@ export type Member = {
   online: boolean;
   ready: boolean;
   isHost: boolean;
+  token: string; // reconnect token
 };
 
 // Lobby-facing player info (combines engine score with connection flags).
@@ -77,10 +85,16 @@ export type Room = {
   timerKey: string | null;
   // Pending timer that makes bots take their turn (online rooms with bots).
   botTimer: ReturnType<typeof setTimeout> | null;
+  // Dynamic host: which playerId currently has host powers (initially HOST_ID).
+  hostId: string;
+  // Timer to transfer host powers when host disconnects for too long.
+  hostTransferTimer: ReturnType<typeof setTimeout> | null;
+  // Timers to remove lobby players after disconnect grace period.
+  lobbyDisconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
 };
 
 export type JoinResult =
-  | { ok: true; playerId: string; room: Room }
+  | { ok: true; playerId: string; room: Room; token: string }
   | { ok: false; error: string };
 
 export class RoomManager {
@@ -108,13 +122,14 @@ export class RoomManager {
   }
 
   // --- lifecycle ------------------------------------------------------------
-  createRoom(nickname: string): { code: string; playerId: string; room: Room } {
+  createRoom(nickname: string): { code: string; playerId: string; room: Room; token: string } {
     const cleanNick = (nickname || '').trim().slice(0, 20) || 'Гравець';
     const code = this.generateCode();
     // Load the dynamic deck from persistent storage and pass it to the engine.
     const deckFile = getDeck();
     const deck: DeckData = { memes: deckFile.memes, situations: deckFile.situations };
     const state = createLobby(cleanNick, undefined, deck);
+    const token = crypto.randomBytes(16).toString('hex');
     const members = new Map<string, Member>();
     members.set(HOST_ID, {
       playerId: HOST_ID,
@@ -123,6 +138,7 @@ export class RoomManager {
       online: true,
       ready: true,
       isHost: true,
+      token,
     });
     const room: Room = {
       code,
@@ -135,9 +151,12 @@ export class RoomManager {
       phaseTimer: null,
       timerKey: null,
       botTimer: null,
+      hostId: HOST_ID,
+      hostTransferTimer: null,
+      lobbyDisconnectTimers: new Map(),
     };
     this.rooms.set(code, room);
-    return { code, playerId: HOST_ID, room };
+    return { code, playerId: HOST_ID, room, token };
   }
 
   joinRoom(code: string, nickname: string): JoinResult {
@@ -148,6 +167,7 @@ export class RoomManager {
 
     const cleanNick = (nickname || '').trim().slice(0, 20) || 'Гравець';
     const playerId = `p${++room.seq}`;
+    const token = crypto.randomBytes(16).toString('hex');
     room.state = addPlayer(room.state, playerId, cleanNick);
     room.members.set(playerId, {
       playerId,
@@ -156,9 +176,10 @@ export class RoomManager {
       online: true,
       ready: false,
       isHost: false,
+      token,
     });
     room.emptySince = null;
-    return { ok: true, playerId, room };
+    return { ok: true, playerId, room, token };
   }
 
   // Bind a live socket to a player (on create/join, or reconnect).
@@ -173,9 +194,62 @@ export class RoomManager {
     room.emptySince = null;
   }
 
-  // A socket dropped: mark its player offline. In the lobby we drop the player
-  // entirely (so they don't block the start); mid-game we keep them so the
-  // scoreboard/turn order stays intact and auto-play can cover their turn.
+  // Rejoin a room after reconnection. Verifies token, re-attaches socket.
+  rejoinRoom(
+    code: string,
+    playerId: string,
+    token: string,
+    socketId: string,
+  ): { ok: true; room: Room } | { ok: false; error: string } {
+    const room = this.getRoom(code);
+    if (!room) return { ok: false, error: 'Кімнату не знайдено' };
+    const member = room.members.get(playerId);
+    if (!member) return { ok: false, error: 'Гравця не знайдено в кімнаті' };
+    if (member.token !== token) return { ok: false, error: 'Невірний токен' };
+
+    // Cancel lobby disconnect timer if pending.
+    const lobbyTimer = room.lobbyDisconnectTimers.get(playerId);
+    if (lobbyTimer) {
+      clearTimeout(lobbyTimer);
+      room.lobbyDisconnectTimers.delete(playerId);
+    }
+
+    // Cancel host transfer timer if the reconnecting player is the host.
+    if (playerId === room.hostId && room.hostTransferTimer) {
+      clearTimeout(room.hostTransferTimer);
+      room.hostTransferTimer = null;
+    }
+
+    // Re-attach socket.
+    member.socketId = socketId;
+    member.online = true;
+    room.socketToPlayer.set(socketId, playerId);
+    room.emptySince = null;
+    return { ok: true, room };
+  }
+
+  // Transfer host powers to the first available online non-bot member.
+  transferHost(room: Room): void {
+    const candidates = [...room.members.values()].filter(
+      (m) => m.online && !m.playerId.startsWith('bot') && m.playerId !== room.hostId,
+    );
+    if (candidates.length === 0) return; // no one to transfer to
+    const newHost = candidates[0];
+    const oldHostMember = room.members.get(room.hostId);
+    if (oldHostMember) oldHostMember.isHost = false;
+    newHost.isHost = true;
+    room.hostId = newHost.playerId;
+  }
+
+  // Broadcast callback - set by index.ts to enable deferred broadcasts from timers.
+  private _onBroadcast: ((room: Room) => void) | null = null;
+  setOnBroadcast(cb: (room: Room) => void): void {
+    this._onBroadcast = cb;
+  }
+
+  // A socket dropped: mark its player offline. In the lobby we give them a
+  // grace period before removing; mid-game we keep them for the scoreboard.
+  // If the disconnected player is the current host, start the host transfer timer.
   handleDisconnect(socketId: string): { room: Room; playerId: string } | null {
     for (const room of this.rooms.values()) {
       const playerId = room.socketToPlayer.get(socketId);
@@ -185,10 +259,29 @@ export class RoomManager {
       if (member) {
         member.online = false;
         member.socketId = null;
-        if (room.state.phase === 'lobby' && playerId !== HOST_ID) {
-          room.state = removePlayer(room.state, playerId);
-          room.members.delete(playerId);
+        if (room.state.phase === 'lobby' && playerId !== room.hostId) {
+          // Grace period: remove after 60s if they don't reconnect.
+          const timer = setTimeout(() => {
+            room.lobbyDisconnectTimers.delete(playerId);
+            const m = room.members.get(playerId);
+            if (m && !m.online && room.state.phase === 'lobby') {
+              room.state = removePlayer(room.state, playerId);
+              room.members.delete(playerId);
+              this.touchEmptiness(room);
+              // Broadcast is handled by the caller via the onBroadcast callback.
+              if (this._onBroadcast) this._onBroadcast(room);
+            }
+          }, LOBBY_DISCONNECT_GRACE_MS);
+          room.lobbyDisconnectTimers.set(playerId, timer);
         }
+      }
+      // Start host transfer timer if host disconnected.
+      if (playerId === room.hostId && !room.hostTransferTimer) {
+        room.hostTransferTimer = setTimeout(() => {
+          room.hostTransferTimer = null;
+          this.transferHost(room);
+          if (this._onBroadcast) this._onBroadcast(room);
+        }, HOST_TRANSFER_DELAY_MS);
       }
       this.touchEmptiness(room);
       return { room, playerId };
@@ -233,6 +326,7 @@ export class RoomManager {
       online: true,
       ready: true,
       isHost: false,
+      token: '',
     });
     return true;
   }
@@ -253,7 +347,7 @@ export class RoomManager {
   // Begin the game / advance to the next round. Only the host may trigger.
   // From 'lobby' it requires >= 2 players; from 'reveal' it just advances.
   hostAdvance(room: Room, playerId: string): boolean {
-    if (playerId !== HOST_ID) return false;
+    if (playerId !== room.hostId) return false;
     if (room.state.phase === 'lobby' && room.state.players.length < MIN_PLAYERS_TO_START) {
       return false;
     }
@@ -303,7 +397,7 @@ export class RoomManager {
         score: p.score,
         online: m?.online ?? false,
         ready: m?.ready ?? false,
-        isHost: p.id === HOST_ID,
+        isHost: p.id === room.hostId,
       };
     });
   }
@@ -318,6 +412,8 @@ export class RoomManager {
       if (isEmpty && room.emptySince && now - room.emptySince > EMPTY_ROOM_TTL_MS) {
         if (room.phaseTimer) clearTimeout(room.phaseTimer);
         if (room.botTimer) clearTimeout(room.botTimer);
+        if (room.hostTransferTimer) clearTimeout(room.hostTransferTimer);
+        for (const t of room.lobbyDisconnectTimers.values()) clearTimeout(t);
         this.rooms.delete(code);
         removed.push(code);
       }
