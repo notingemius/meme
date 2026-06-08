@@ -203,6 +203,14 @@ export function getDeck(): DeckFile {
 
 export function addMemes(memes: MemeCard[]): DeckFile {
   const deck = getDeck();
+  // Auto-assign id for memes that don't have one
+  let maxId = deck.memes.reduce((max, m) => Math.max(max, m.id || 0), 0);
+  for (const m of memes) {
+    if (!m.id) {
+      maxId++;
+      m.id = maxId;
+    }
+  }
   deck.memes.push(...memes);
   saveToDisk(deck);
   return deck;
@@ -213,6 +221,15 @@ export function removeMeme(id: number): DeckFile {
   deck.memes = deck.memes.filter((m) => m.id !== id);
   saveToDisk(deck);
   return deck;
+}
+
+export function removeMemesByTitle(titles: string[]): { deck: DeckFile; removed: number } {
+  const deck = getDeck();
+  const titleSet = new Set(titles.map((t) => t.toLowerCase().trim()));
+  const before = deck.memes.length;
+  deck.memes = deck.memes.filter((m) => !titleSet.has((m.title || '').toLowerCase().trim()));
+  saveToDisk(deck);
+  return { deck, removed: before - deck.memes.length };
 }
 
 export function addSituations(situations: SituationWithCategory[]): DeckFile {

@@ -16,7 +16,7 @@ import { RoomManager, type Room } from './rooms';
 import { botsSubmit, botsVote } from './engine';
 import { loadFlags, addFlag, setFlagOnce, removeFlags, allFlags, flaggedIds, summary, toCsv } from './qa';
 import { manifestHandler, assetHandler, otaAvailable, OTA_INFO } from './ota';
-import { loadDeck, getDeck, addMemes, removeMeme, addSituations, removeSituation, type SituationWithCategory } from './deck-store';
+import { loadDeck, getDeck, addMemes, removeMeme, removeMemesByTitle, addSituations, removeSituation, type SituationWithCategory } from './deck-store';
 import { loadProfiles, getOrCreateProfile, getProfileById, updateNickname, recordGameResult } from './profiles';
 import { loadLeaderboard, recordFriends, getFriendsLeaderboard } from './leaderboard';
 import type { MemeCard } from './engine';
@@ -84,6 +84,16 @@ app.delete('/api/deck/memes/:id', (req, res) => {
   if (isNaN(id)) return res.status(400).json({ error: 'invalid id' });
   const deck = removeMeme(id);
   res.json({ ok: true, totalMemes: deck.memes.length });
+});
+
+// Admin: remove meme(s) by title (for memes added without id).
+app.post('/api/deck/memes/remove-by-title', (req, res) => {
+  const titles: string[] = req.body?.titles;
+  if (!Array.isArray(titles) || titles.length === 0) {
+    return res.status(400).json({ error: 'body.titles (string[]) required' });
+  }
+  const { deck, removed } = removeMemesByTitle(titles);
+  res.json({ ok: true, removed, totalMemes: deck.memes.length });
 });
 
 // Admin: add situations.
