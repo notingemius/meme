@@ -49,7 +49,10 @@ export default function MemeShopScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${SERVER_URL}/api/meme-shop`, { signal: AbortSignal.timeout(12000) });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(`${SERVER_URL}/api/meme-shop`, { signal: controller.signal });
+        clearTimeout(timeout);
         if (res.ok) {
           const data = await res.json();
           setMemes(data.available ?? []);
@@ -85,12 +88,15 @@ export default function MemeShopScreen() {
           category: 'general',
         })),
       };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       const res = await fetch(`${SERVER_URL}/api/deck/memes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15000),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (res.ok) {
         const data = await res.json();
         setAddedCount(toAdd.length);
