@@ -52,6 +52,41 @@ loadProfiles();
 // Load leaderboard from /data on startup
 loadLeaderboard();
 
+// --- Meme Shop: browse memes from external sources, pick favorites, add to deck
+app.get('/api/meme-shop', async (_req, res) => {
+  try {
+    const deck = getDeck();
+    const existingUrls = new Set(deck.memes.map((m) => m.image_url));
+    const existingTitles = new Set(deck.memes.map((m) => (m.title || '').toLowerCase().trim()));
+
+    // Fetch from imgflip API (100 top templates — guaranteed working URLs)
+    const resp = await fetch('https://api.imgflip.com/get_memes');
+    const data = (await resp.json()) as any;
+    const allMemes = data?.data?.memes ?? [];
+
+    // Filter: not already in deck, not composite (box_count < 4)
+    const available = allMemes
+      .filter((m: any) => {
+        if (existingUrls.has(m.url)) return false;
+        if (existingTitles.has((m.name || '').toLowerCase().trim())) return false;
+        if ((m.box_count || 2) >= 4) return false;
+        return true;
+      })
+      .map((m: any) => ({
+        id: m.id,
+        title: m.name,
+        image_url: m.url,
+        source: 'imgflip',
+        width: m.width,
+        height: m.height,
+      }));
+
+    res.json({ available, totalInDeck: deck.memes.length });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch memes from sources' });
+  }
+});
+
 // Public: fetch the full deck (memes, situations, categories).
 app.get('/api/deck', (_req, res) => {
   res.json(getDeck());

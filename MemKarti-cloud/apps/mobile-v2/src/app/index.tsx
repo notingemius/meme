@@ -197,6 +197,12 @@ export default function HomeScreen() {
                   <Text style={[styles.btnReviewText, { color: colors.error }]}>🚩 Переглянути всі меми (QA)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  onPress={() => router.push('/meme-shop')}
+                  style={[styles.btnShop, { backgroundColor: isDark ? '#064E3B' : '#ECFDF5', borderColor: '#10B981' }]}
+                >
+                  <Text style={[styles.btnShopText, { color: '#10B981' }]}>🛒 Магазин мемів — додати нові</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   onPress={() => router.push('/profile')}
                   style={[styles.btnProfile, { backgroundColor: isDark ? '#064E3B' : '#F0FDF4', borderColor: isDark ? '#34D399' : '#86EFAC' }]}
                 >
@@ -301,6 +307,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   btnReviewText: { fontSize: 15, fontWeight: '600' },
+  btnShop: {
+    borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center', marginTop: 12,
+    borderWidth: 1,
+  },
+  btnShopText: { fontSize: 15, fontWeight: '600' },
   btnProfile: {
     borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', justifyContent: 'center', marginTop: 12,
