@@ -53,35 +53,111 @@ loadProfiles();
 loadLeaderboard();
 
 // --- Meme Shop: browse memes from external sources, pick favorites, add to deck
+// Curated list of SINGLE-REACTION memes from multiple sources (KYM CDN,
+// imgflip, Wikipedia, etc.) that are known to return HTTP 200.
+const CURATED_SHOP_MEMES: Array<{ title: string; image_url: string; source: string }> = [
+  // KYM CDN — Wojak/Pepe/Chad family (одиночные реакции)
+  { title: 'Wojak Crying', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/883/586/63f.jpg' },
+  { title: 'Chad Yes Meme', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/650/747/aaf.png' },
+  { title: 'Soyjak Pointing Two', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/937/655/73c.jpg' },
+  { title: 'Doomer Wojak Face', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/632/306/a8f.jpg' },
+  { title: 'Giga Chad Photo', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/562/650/cd0.jpg' },
+  { title: 'Big Brain Time', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/534/991/18e.jpg' },
+  { title: 'Brainlet Small Brain', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/328/854/8d6.jpg' },
+  { title: 'Angry NPC Wojak', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/421/934/795.jpg' },
+  { title: 'Pepe Sad Sitting', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/000/862/065/0e9.jpg' },
+  { title: 'Smug Pepe Face', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/236/841/075.jpg' },
+  { title: 'Crying Pepe Tears', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/000/948/911/ed7.jpg' },
+  { title: 'Pepe Laughing Hard', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/839/575/d69.jpg' },
+  // KYM CDN — популярні реакції
+  { title: 'Surprised Tom HD', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/485/098/245.png' },
+  { title: 'You Dare Use My Spells', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/535/017/c85.jpg' },
+  { title: 'Squidward Exhausted', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/060/689/927.jpg' },
+  { title: 'Patrick Evil Grin', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/371/723/be6.jpg' },
+  { title: 'Obama Giving Medal Self', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/056/730/597.jpg' },
+  { title: 'Drew Scanlon Blinking', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/207/210/b22.jpg' },
+  { title: 'Holding Back Tears', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/096/564/2f7.jpg' },
+  { title: 'Monkey Looking Away', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/471/227/dd0.png' },
+  { title: 'Markiplier E Meme', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/365/818/183.jpg' },
+  { title: 'Skeleton Waiting Bench', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/000/628/148/b04.jpg' },
+  { title: 'Math Lady Calculating', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/229/007/4c9.jpg' },
+  { title: 'Zach Galifianakis Math', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/000/517/111/fbd.jpg' },
+  { title: 'John Travolta Confused Pulp', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/042/619/4ea.jpg' },
+  { title: 'Cat Nervous Sweating', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/000/565/399/9c0.jpg' },
+  { title: 'Larry David Unsure', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/021/311/free.jpg' },
+  { title: 'Roll Safe Thinking', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/022/138/highresrollsafe.jpg' },
+  { title: 'Confused Nick Young Photo', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/018/489/nick-young-confused-face-300x256-nqlyaa.jpg' },
+  { title: 'Suspicious Fry Squint', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/006/026/NOTSUREIF.jpg' },
+  { title: 'Overly Attached Girl', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/010/496/Overly_attached_GF.jpg' },
+  { title: 'Forever Alone Face', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/003/619/ForeverAlone.jpg' },
+  { title: 'Shut Up Take My Money', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/005/574/takemymoney.jpg' },
+  { title: 'Me Gusta Rage', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/002/252/NoMeGusta.jpg' },
+  { title: 'Okay Face Rage', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/003/617/OkayGuy.jpg' },
+  { title: 'Classic Troll Face', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/000/091/TrollFace.jpg' },
+  { title: 'Not Bad Obama Face', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/006/151/ObamaNotBad.jpg' },
+  { title: 'If You Know What I Mean', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/008/549/ifuknowwhatimean.jpg' },
+  { title: 'Ancient Aliens Giorgio', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/005/848/Aliens.jpg' },
+  { title: 'Doge Original Shiba', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/013/564/doge.jpg' },
+  { title: 'Philosoraptor Thinking', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/000/509/800px-Philosoraptor2.jpg' },
+  { title: 'Success Baby Fist', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/000/745/success.jpg' },
+  { title: 'Disaster Girl Fire', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/000/043/disaster-girl.jpg' },
+  { title: 'Surprised Pikachu Full', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/027/475/Screen_Shot_2018-10-25_at_11.02.15_AM.png' },
+  { title: 'Gandalf Meme Wizard', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/000/117/814/are-you-wizard.jpg' },
+  { title: 'Dog In Disaster', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/401/347/312.jpg' },
+  { title: 'Distracted Boyfriend Back', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/photos/images/newsfeed/001/293/670/b7d.jpg' },
+  { title: 'Two Spidermen', source: 'knowyourmeme', image_url: 'https://i.kym-cdn.com/entries/icons/original/000/023/397/C-658VsXoAo3ovC.jpg' },
+  // Wikipedia / Wikimedia
+  { title: 'Pepe Feels Good Original', source: 'wikimedia', image_url: 'https://upload.wikimedia.org/wikipedia/en/6/63/Feels_good_man.jpg' },
+  // Imgflip (дополнительные одиночные через прямые URL)
+  { title: 'Waiting Skeleton Meme', source: 'imgflip', image_url: 'https://i.imgflip.com/2fm6x.jpg' },
+  { title: 'Grandma Internet', source: 'imgflip', image_url: 'https://i.imgflip.com/1bhf.jpg' },
+  { title: 'Star Wars Yoda', source: 'imgflip', image_url: 'https://i.imgflip.com/8k0sa.jpg' },
+  { title: 'Unsettled Tom Face', source: 'imgflip', image_url: 'https://i.imgflip.com/2wifvo.jpg' },
+  { title: 'Arthur Fist Punch', source: 'imgflip', image_url: 'https://i.imgflip.com/17fgbh.jpg' },
+  { title: 'Pretending To Be Happy', source: 'imgflip', image_url: 'https://i.imgflip.com/2fbnm4.jpg' },
+  { title: 'Third World Success', source: 'imgflip', image_url: 'https://i.imgflip.com/1a3t.jpg' },
+  { title: 'Computer Guy Facepalm', source: 'imgflip', image_url: 'https://i.imgflip.com/14y.jpg' },
+  { title: 'Scared Cat Meme', source: 'imgflip', image_url: 'https://i.imgflip.com/2w7pf5.jpg' },
+  { title: 'Cat In The Hat', source: 'imgflip', image_url: 'https://i.imgflip.com/3prze1.jpg' },
+  { title: 'Angry Pakistani Fan', source: 'imgflip', image_url: 'https://i.imgflip.com/3c3rig.jpg' },
+];
+
 app.get('/api/meme-shop', async (_req, res) => {
   try {
     const deck = getDeck();
     const existingUrls = new Set(deck.memes.map((m) => m.image_url));
     const existingTitles = new Set(deck.memes.map((m) => (m.title || '').toLowerCase().trim()));
 
-    // Fetch from imgflip API (100 top templates — guaranteed working URLs)
-    const resp = await fetch('https://api.imgflip.com/get_memes');
-    const data = (await resp.json()) as any;
-    const allMemes = data?.data?.memes ?? [];
+    const isNew = (url: string, title: string) =>
+      !existingUrls.has(url) && !existingTitles.has(title.toLowerCase().trim());
 
-    // Filter: not already in deck, not composite (box_count < 4)
-    const available = allMemes
-      .filter((m: any) => {
-        if (existingUrls.has(m.url)) return false;
-        if (existingTitles.has((m.name || '').toLowerCase().trim())) return false;
-        if ((m.box_count || 2) >= 4) return false;
-        return true;
-      })
-      .map((m: any) => ({
-        id: m.id,
-        title: m.name,
-        image_url: m.url,
-        source: 'imgflip',
-        width: m.width,
-        height: m.height,
-      }));
+    // Source 1: imgflip API (100 top templates)
+    let imgflipMemes: any[] = [];
+    try {
+      const resp = await fetch('https://api.imgflip.com/get_memes', { signal: AbortSignal.timeout(8000) });
+      const data = (await resp.json()) as any;
+      imgflipMemes = (data?.data?.memes ?? [])
+        .filter((m: any) => isNew(m.url, m.name) && (m.box_count || 2) < 4)
+        .map((m: any) => ({
+          title: m.name,
+          image_url: m.url,
+          source: 'imgflip',
+        }));
+    } catch { /* imgflip down — skip */ }
 
-    res.json({ available, totalInDeck: deck.memes.length });
+    // Source 2: curated list (KYM CDN, Wikimedia, extra imgflip)
+    const curated = CURATED_SHOP_MEMES.filter((m) => isNew(m.image_url, m.title));
+
+    // Combine all sources, deduplicate by URL
+    const seen = new Set<string>();
+    const all: Array<{ title: string; image_url: string; source: string }> = [];
+    for (const m of [...curated, ...imgflipMemes]) {
+      if (seen.has(m.image_url)) continue;
+      seen.add(m.image_url);
+      all.push(m);
+    }
+
+    res.json({ available: all, totalInDeck: deck.memes.length, sources: ['imgflip', 'knowyourmeme', 'wikimedia'] });
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch memes from sources' });
   }
