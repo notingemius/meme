@@ -126,68 +126,63 @@ app.get('/api/meme-shop', async (_req, res) => {
   try {
     const deck = getDeck();
     const existingUrls = new Set(deck.memes.map((m) => m.image_url));
-    const existingTitles = new Set(deck.memes.map((m) => (m.title || '').toLowerCase().trim()));
 
-    // We serve ONLY text-free, single-image reactions (no captioned memes, no
-    // multi-panel templates). Reddit is intentionally NOT used here because its
-    // posts are finished memes WITH text overlaid.
+    // --- ONLY text-free memes. No captioned Reddit posts. ---
+    // Uses: reactionpics (clean reaction photos), MemeTemplatesOfficial
+    // (blank templates), imgflip API (blank templates), curated KYM.
+    // Each call returns RANDOM fresh content → infinite scroll.
 
-    // Composite / multi-panel template names to exclude from imgflip.
+    // Reddit: text-free reaction subs (random fresh batch every time)
+    const TEXTFREE_SUBS = ['reactionpics', 'MemeTemplatesOfficial', 'MemeEconomy', 'photoshopbattles'];
+    const redditResults = await Promise.allSettled(
+      TEXTFREE_SUBS.map(async (sub) => {
+        const r = await fetch(`https://meme-api.com/gimme/${sub}/25`, {
+          signal: AbortSignal.timeout(7000),
+        });
+        const d = (await r.json()) as any;
+        return ((d?.memes ?? []) as any[])
+          .filter((m) => !m.nsfw && /\.(jpg|jpeg|png)$/i.test(m.url || ''))
+          .map((m) => ({ title: m.title || sub, image_url: m.url as string, source: `reddit/${sub}` }));
+      }),
+    );
+    const reddit = redditResults.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+
+    // imgflip API — blank templates (text-free), filter composites
     const COMPOSITE = [
       'two buttons', 'expanding brain', "gru's plan", 'exit 12', 'change my mind',
       'always has been', 'tuxedo winnie', 'same picture', 'bell curve', 'boardroom',
       'spider man triple', 'uno draw', 'drake', 'anakin padme', 'epic handshake',
       'trade offer', 'who killed', 'is this a', 'buff doge', 'scooby doo', 'american chopper',
       'bernie sanders', 'left exit', 'running away balloon', 'distracted boyfriend',
-      'x everywhere', "y'all got any more", 'this is where', 'inhaling seagull', 'no - yes',
-      'panik', 'clown applying', 'galaxy brain', 'soyjak',
-      'hard to swallow', 'they dont know', "they're the same", 'marked safe',
-      'flex tape', 'domino', 'scroll of truth', 'finding neverland',
+      'x everywhere', 'panik', 'clown applying', 'galaxy brain',
+      'hard to swallow', 'flex tape', 'domino', 'scroll of truth', 'finding neverland',
     ];
-    const isComposite = (name: string) => {
-      const n = name.toLowerCase();
-      return COMPOSITE.some((c) => n.includes(c));
-    };
+    const isComposite = (name: string) => COMPOSITE.some((c) => name.toLowerCase().includes(c));
 
-    // Source 1: imgflip API — blank templates are TEXT-FREE. Filter out
-    // composite/multi-panel ones, keep single-image reactions.
     let imgflipMemes: Array<{ title: string; image_url: string; source: string }> = [];
     try {
       const resp = await fetch('https://api.imgflip.com/get_memes', { signal: AbortSignal.timeout(8000) });
       const data = (await resp.json()) as any;
       imgflipMemes = (data?.data?.memes ?? [])
         .filter((m: any) => (m.box_count || 2) <= 2 && !isComposite(m.name || ''))
-        .map((m: any) => ({
-          title: m.name,
-          image_url: m.url,
-          source: 'imgflip',
-        }));
-    } catch { /* imgflip down — skip */ }
+        .map((m: any) => ({ title: m.name, image_url: m.url, source: 'imgflip' }));
+    } catch {}
 
-    // Source 2: curated list of hand-picked single text-free reactions.
+    // Curated KYM (text-free reactions)
     const curated = CURATED_SHOP_MEMES.filter((m) => !isComposite(m.title));
 
-    // Combine, dedupe by URL, tag whether already in the deck.
+    // Combine ALL, dedupe by URL, HIDE already-in-deck (don't show grey — just skip)
     const seen = new Set<string>();
-    const all: Array<{ title: string; image_url: string; source: string; inDeck: boolean }> = [];
-    for (const m of [...curated, ...imgflipMemes]) {
-      if (!m.image_url || seen.has(m.image_url)) continue;
+    const available: Array<{ title: string; image_url: string; source: string }> = [];
+    for (const m of [...reddit, ...curated, ...imgflipMemes]) {
+      if (!m.image_url || seen.has(m.image_url) || existingUrls.has(m.image_url)) continue;
       seen.add(m.image_url);
-      const inDeck = existingUrls.has(m.image_url);
-      all.push({ ...m, inDeck });
+      available.push(m);
     }
-    // New (not in deck) first, then already-added.
-    all.sort((a, b) => Number(a.inDeck) - Number(b.inDeck));
 
-    const newCount = all.filter((m) => !m.inDeck).length;
-    res.json({
-      available: all,
-      newCount,
-      totalInDeck: deck.memes.length,
-      sources: ['imgflip', 'knowyourmeme', 'wikimedia'],
-    });
+    res.json({ available, totalInDeck: deck.memes.length });
   } catch (e) {
-    res.status(500).json({ error: 'Failed to fetch memes from sources' });
+    res.status(500).json({ error: 'Failed to fetch memes' });
   }
 });
 
