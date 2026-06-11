@@ -203,15 +203,18 @@ export function getDeck(): DeckFile {
 
 export function addMemes(memes: MemeCard[]): DeckFile {
   const deck = getDeck();
-  // Auto-assign id for memes that don't have one
+  const existingUrls = new Set(deck.memes.map((m) => m.image_url));
+  // Auto-assign id for memes that don't have one; skip duplicates by URL.
   let maxId = deck.memes.reduce((max, m) => Math.max(max, m.id || 0), 0);
   for (const m of memes) {
+    if (!m.image_url || existingUrls.has(m.image_url)) continue; // skip dup
     if (!m.id) {
       maxId++;
       m.id = maxId;
     }
+    existingUrls.add(m.image_url);
+    deck.memes.push(m);
   }
-  deck.memes.push(...memes);
   saveToDisk(deck);
   return deck;
 }

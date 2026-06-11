@@ -46,22 +46,25 @@ export default function MemeShopScreen() {
   const [adding, setAdding] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
 
-  // Load available memes from server (which proxies imgflip etc.)
-  useEffect(() => {
-    (async () => {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
-        const res = await fetch(`${SERVER_URL}/api/meme-shop`, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (res.ok) {
-          const data = await res.json();
-          setMemes(data.available ?? []);
-        }
-      } catch {}
-      setLoading(false);
-    })();
+  // Load available memes from server (Reddit + imgflip + curated).
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(`${SERVER_URL}/api/meme-shop`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data = await res.json();
+        setMemes(data.available ?? []);
+      }
+    } catch {}
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const toggleSelect = useCallback((meme: ShopMeme) => {
     if (meme.inDeck) return; // already in game — not selectable
@@ -130,7 +133,9 @@ export default function MemeShopScreen() {
           <Text style={styles.back}>‹ Назад</Text>
         </TouchableOpacity>
         <Text style={styles.title}>🛒 Магазин мемів</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={load} disabled={loading} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={[styles.refresh, loading && { opacity: 0.4 }]}>🔄 Ще</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Toolbar */}
@@ -244,6 +249,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
   back: { fontSize: 16, color: '#2563EB', fontWeight: '600', width: 60 },
+  refresh: { fontSize: 14, color: '#10B981', fontWeight: '700', width: 60, textAlign: 'right' },
   title: { fontSize: 16, color: '#111827', fontWeight: '700' },
 
   toolbar: {

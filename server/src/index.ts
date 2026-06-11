@@ -122,13 +122,39 @@ const CURATED_SHOP_MEMES: Array<{ title: string; image_url: string; source: stri
   { title: 'Angry Pakistani Fan', source: 'imgflip', image_url: 'https://i.imgflip.com/3c3rig.jpg' },
 ];
 
+// Subreddits the meme shop pulls from — varied themes/cultures, mostly
+// single-image memes (films, cartoons, reactions, wholesome, history, anime).
+const SHOP_SUBREDDITS = [
+  'memes', 'dankmemes', 'wholesomememes', 'me_irl', 'reactionmemes',
+  'PrequelMemes', 'marvelstudiosmemes', 'lotrmemes', 'historymemes',
+  'animemes', 'cats', 'funny', 'MemeReactions', 'comedyheaven',
+  'AdviceAnimals', 'terriblefacebookmemes', 'fffffffuuuuuuuuuuuu',
+];
+
 app.get('/api/meme-shop', async (_req, res) => {
   try {
     const deck = getDeck();
     const existingUrls = new Set(deck.memes.map((m) => m.image_url));
     const existingTitles = new Set(deck.memes.map((m) => (m.title || '').toLowerCase().trim()));
 
-    // Source 1: imgflip API (100 top templates — reliable CDN)
+    // Source 1: Reddit (meme-api.com) — BIG, self-refreshing pool across many
+    // subreddits (films, cartoons, reactions, different cultures). Each request
+    // returns fresh memes, so the shop never runs out.
+    const pick = [...SHOP_SUBREDDITS].sort(() => Math.random() - 0.5).slice(0, 7);
+    const redditResults = await Promise.allSettled(
+      pick.map(async (sub) => {
+        const r = await fetch(`https://meme-api.com/gimme/${sub}/30`, {
+          signal: AbortSignal.timeout(7000),
+        });
+        const d = (await r.json()) as any;
+        return ((d?.memes ?? []) as any[])
+          .filter((m) => !m.nsfw && /\.(jpg|jpeg|png)$/i.test(m.url || ''))
+          .map((m) => ({ title: m.title || sub, image_url: m.url as string, source: `reddit/${sub}` }));
+      }),
+    );
+    const reddit = redditResults.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+
+    // Source 2: imgflip API (100 top templates — reliable CDN)
     let imgflipMemes: Array<{ title: string; image_url: string; source: string }> = [];
     try {
       const resp = await fetch('https://api.imgflip.com/get_memes', { signal: AbortSignal.timeout(8000) });
@@ -140,19 +166,19 @@ app.get('/api/meme-shop', async (_req, res) => {
       }));
     } catch { /* imgflip down — skip */ }
 
-    // Source 2: curated list (KYM CDN, Wikimedia, extra imgflip)
+    // Source 3: curated list (KYM CDN, Wikimedia, extra imgflip)
     const curated = CURATED_SHOP_MEMES;
 
     // Combine all sources, dedupe by URL, tag whether already in the deck.
     // We DON'T hide in-deck memes — the shop shows the full library so it never
     // looks empty; in-deck items are just marked and not selectable.
+    // New (reddit) first so fresh content is on top.
     const seen = new Set<string>();
     const all: Array<{ title: string; image_url: string; source: string; inDeck: boolean }> = [];
-    for (const m of [...curated, ...imgflipMemes]) {
-      if (seen.has(m.image_url)) continue;
+    for (const m of [...reddit, ...curated, ...imgflipMemes]) {
+      if (!m.image_url || seen.has(m.image_url)) continue;
       seen.add(m.image_url);
-      const inDeck =
-        existingUrls.has(m.image_url) || existingTitles.has(m.title.toLowerCase().trim());
+      const inDeck = existingUrls.has(m.image_url);
       all.push({ ...m, inDeck });
     }
     // New (not in deck) first, then already-added.
@@ -163,7 +189,7 @@ app.get('/api/meme-shop', async (_req, res) => {
       available: all,
       newCount,
       totalInDeck: deck.memes.length,
-      sources: ['imgflip', 'knowyourmeme', 'wikimedia'],
+      sources: ['reddit', 'imgflip', 'knowyourmeme', 'wikimedia'],
     });
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch memes from sources' });
