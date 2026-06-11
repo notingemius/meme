@@ -33,6 +33,7 @@ type ShopMeme = {
   title: string;
   image_url: string;
   source: string;
+  inDeck?: boolean;
 };
 
 export default function MemeShopScreen() {
@@ -63,6 +64,7 @@ export default function MemeShopScreen() {
   }, []);
 
   const toggleSelect = useCallback((meme: ShopMeme) => {
+    if (meme.inDeck) return; // already in game — not selectable
     const key = meme.image_url;
     setSelected((prev) => {
       const next = new Set(prev);
@@ -100,8 +102,10 @@ export default function MemeShopScreen() {
       if (res.ok) {
         const data = await res.json();
         setAddedCount(toAdd.length);
-        // Remove added memes from the shop list
-        setMemes((prev) => prev.filter((m) => !selected.has(m.image_url)));
+        // Mark added memes as in-deck (keep them visible, greyed out)
+        setMemes((prev) =>
+          prev.map((m) => (selected.has(m.image_url) ? { ...m, inDeck: true } : m)),
+        );
         setSelected(new Set());
         Alert.alert(
           '✅ Додано!',
@@ -132,17 +136,18 @@ export default function MemeShopScreen() {
       {/* Toolbar */}
       <View style={styles.toolbar}>
         <Text style={styles.counter}>
-          Доступно: <Text style={{ fontWeight: '700' }}>{memes.length}</Text>
+          Нових: <Text style={{ fontWeight: '700', color: '#10B981' }}>{memes.filter((m) => !m.inDeck).length}</Text>
+          {'  '}В грі: <Text style={{ fontWeight: '700', color: '#9CA3AF' }}>{memes.filter((m) => m.inDeck).length}</Text>
           {selected.size > 0 && (
-            <Text style={{ color: '#10B981' }}>{' '}· Вибрано: {selected.size}</Text>
+            <Text style={{ color: '#2563EB' }}>{'  '}Вибрано: {selected.size}</Text>
           )}
         </Text>
         {addedCount > 0 && (
-          <Text style={styles.addedBadge}>+{addedCount} додано ✓</Text>
+          <Text style={styles.addedBadge}>+{addedCount} ✓</Text>
         )}
       </View>
 
-      <Text style={styles.hint}>Тапни щоб вибрати. Потім натисни кнопку «Додати в гру».</Text>
+      <Text style={styles.hint}>Тапни нові меми щоб вибрати. Сірі (✓ в грі) — вже додані.</Text>
 
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -168,20 +173,42 @@ export default function MemeShopScreen() {
           removeClippedSubviews
           renderItem={({ item }) => {
             const isSelected = selected.has(item.image_url);
+            const inDeck = !!item.inDeck;
             return (
               <TouchableOpacity
-                activeOpacity={0.85}
+                activeOpacity={inDeck ? 1 : 0.85}
                 onPress={() => toggleSelect(item)}
-                style={[styles.card, { width: CARD_W }, isSelected && styles.cardSelected]}
+                style={[
+                  styles.card,
+                  { width: CARD_W },
+                  isSelected && styles.cardSelected,
+                  inDeck && styles.cardInDeck,
+                ]}
               >
-                <Image source={{ uri: item.image_url }} style={styles.img} resizeMode="cover" />
+                <Image
+                  source={{ uri: item.image_url }}
+                  style={[styles.img, inDeck && { opacity: 0.4 }]}
+                  resizeMode="cover"
+                />
                 <View style={styles.cardFooter}>
-                  <Text numberOfLines={1} style={styles.cardTitle}>{item.title}</Text>
+                  <Text numberOfLines={1} style={[styles.cardTitle, inDeck && { color: '#9CA3AF' }]}>
+                    {item.title}
+                  </Text>
                   <Text style={styles.source}>{item.source}</Text>
                 </View>
-                <View style={[styles.badge, isSelected ? styles.badgeOn : styles.badgeOff]}>
-                  <Text style={styles.badgeText}>{isSelected ? '✓' : '+'}</Text>
+                <View
+                  style={[
+                    styles.badge,
+                    inDeck ? styles.badgeInDeck : isSelected ? styles.badgeOn : styles.badgeOff,
+                  ]}
+                >
+                  <Text style={styles.badgeText}>{inDeck ? '✓' : isSelected ? '✓' : '+'}</Text>
                 </View>
+                {inDeck && (
+                  <View style={styles.inDeckLabel}>
+                    <Text style={styles.inDeckLabelText}>в грі</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           }}
@@ -233,6 +260,7 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: 'transparent',
   },
   cardSelected: { borderColor: '#10B981' },
+  cardInDeck: { opacity: 0.85, backgroundColor: '#F3F4F6' },
   img: { width: '100%', height: CARD_W * 0.78, backgroundColor: '#E5E7EB' },
   cardFooter: { paddingHorizontal: 8, paddingVertical: 8 },
   cardTitle: { fontSize: 11, color: '#374151', fontWeight: '500' },
@@ -243,6 +271,13 @@ const styles = StyleSheet.create({
   },
   badgeOn: { backgroundColor: '#10B981' },
   badgeOff: { backgroundColor: 'rgba(255,255,255,0.9)', borderWidth: 1, borderColor: '#E5E7EB' },
+  badgeInDeck: { backgroundColor: '#9CA3AF' },
+  inDeckLabel: {
+    position: 'absolute', bottom: 30, left: 6,
+    backgroundColor: 'rgba(107,114,128,0.92)', borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  inDeckLabelText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
   badgeText: { fontSize: 14, color: '#FFFFFF', fontWeight: '700' },
 
   fab: {

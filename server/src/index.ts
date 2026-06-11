@@ -128,36 +128,43 @@ app.get('/api/meme-shop', async (_req, res) => {
     const existingUrls = new Set(deck.memes.map((m) => m.image_url));
     const existingTitles = new Set(deck.memes.map((m) => (m.title || '').toLowerCase().trim()));
 
-    const isNew = (url: string, title: string) =>
-      !existingUrls.has(url) && !existingTitles.has(title.toLowerCase().trim());
-
-    // Source 1: imgflip API (100 top templates)
-    let imgflipMemes: any[] = [];
+    // Source 1: imgflip API (100 top templates — reliable CDN)
+    let imgflipMemes: Array<{ title: string; image_url: string; source: string }> = [];
     try {
       const resp = await fetch('https://api.imgflip.com/get_memes', { signal: AbortSignal.timeout(8000) });
       const data = (await resp.json()) as any;
-      imgflipMemes = (data?.data?.memes ?? [])
-        .filter((m: any) => isNew(m.url, m.name) && (m.box_count || 2) < 4)
-        .map((m: any) => ({
-          title: m.name,
-          image_url: m.url,
-          source: 'imgflip',
-        }));
+      imgflipMemes = (data?.data?.memes ?? []).map((m: any) => ({
+        title: m.name,
+        image_url: m.url,
+        source: 'imgflip',
+      }));
     } catch { /* imgflip down — skip */ }
 
     // Source 2: curated list (KYM CDN, Wikimedia, extra imgflip)
-    const curated = CURATED_SHOP_MEMES.filter((m) => isNew(m.image_url, m.title));
+    const curated = CURATED_SHOP_MEMES;
 
-    // Combine all sources, deduplicate by URL
+    // Combine all sources, dedupe by URL, tag whether already in the deck.
+    // We DON'T hide in-deck memes — the shop shows the full library so it never
+    // looks empty; in-deck items are just marked and not selectable.
     const seen = new Set<string>();
-    const all: Array<{ title: string; image_url: string; source: string }> = [];
+    const all: Array<{ title: string; image_url: string; source: string; inDeck: boolean }> = [];
     for (const m of [...curated, ...imgflipMemes]) {
       if (seen.has(m.image_url)) continue;
       seen.add(m.image_url);
-      all.push(m);
+      const inDeck =
+        existingUrls.has(m.image_url) || existingTitles.has(m.title.toLowerCase().trim());
+      all.push({ ...m, inDeck });
     }
+    // New (not in deck) first, then already-added.
+    all.sort((a, b) => Number(a.inDeck) - Number(b.inDeck));
 
-    res.json({ available: all, totalInDeck: deck.memes.length, sources: ['imgflip', 'knowyourmeme', 'wikimedia'] });
+    const newCount = all.filter((m) => !m.inDeck).length;
+    res.json({
+      available: all,
+      newCount,
+      totalInDeck: deck.memes.length,
+      sources: ['imgflip', 'knowyourmeme', 'wikimedia'],
+    });
   } catch (e) {
     res.status(500).json({ error: 'Failed to fetch memes from sources' });
   }
